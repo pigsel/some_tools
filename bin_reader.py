@@ -2,13 +2,11 @@
 
 import struct
 from pathlib import Path
-import numpy as np
-
+import csv
 
 # open
-p = Path(r'C:\_igor\work\tp\2021\kk\test_\524_wir_16_time_color.bin')
-with open(p, "rb") as binary_file:
-    bin_data = binary_file.read()
+p = Path(r'C:\_igor\work\tp\2021\kk\test_\524_wir_16_notime_color.bin')
+bin_data = p.read_bytes()
 
 # HEADER
 bin_header = struct.unpack('3i4sli3d2i', bin_data[0:56])
@@ -21,73 +19,62 @@ bin_header = struct.unpack('3i4sli3d2i', bin_data[0:56])
 head_ind = (bin_header[1], bin_header[9], bin_header[10])  # to choose calc
 print(bin_header)
 
-out_header = ['x', 'y', 'z', 'class', 'echo', 'run_f1', 'run_f2', 'flightline', 'intensity', 'time', 'color']
-
-
-def collect_points(p_len, p_code, tab_size):
-    a = 0
-    bin_points = np.empty((0, tab_size), dtype=int)   # create empty array for 10 columns with int values
-    for point in range(bin_header[4]):   # for each point in file
-        aa = 56 + point*p_len
-        bb = aa + p_len
-        bin_points = np.vstack((bin_points, struct.unpack(p_code, bin_data[aa:bb])))
-        a += 1
-        print(a)
-    return bin_points
+# out_header = ['x', 'y', 'z', 'class', 'echo', 'run_f1', 'run_f2', 'flightline', 'intensity', 'time', 'color']
 
 
 # 16 bit
 if head_ind == (20020715, 1, 0):
-    print(1)
-    points = collect_points(24, '3l4b2HI', 10)
-    points = np.insert(points, 11, values=0, axis=1)
+    out_header = ['x', 'y', 'z', 'class', 'echo', 'run_f1', 'run_f2', 'flightline', 'intensity', 'time']
+    points = tuple(struct.iter_unpack('3l4b2HI', bin_data[56:]))   # (24, '3l4b2HI', 10)
 
 elif head_ind == (20020715, 0, 1):
-    print(2)
-    points = collect_points(24, '3l4b2HI', 10)
-    points = np.insert(points, 10, values=0, axis=1)
+    out_header = ['x', 'y', 'z', 'class', 'echo', 'run_f1', 'run_f2', 'flightline', 'intensity', 'color']
+    points = tuple(struct.iter_unpack('3l4b2HI', bin_data[56:]))   # (24, '3l4b2HI', 10)
 
 elif head_ind == (20020715, 0, 0):
-    print(3)
-    points = collect_points(20, '3l4b2H', 9)
-    points = np.insert(points, (10, 11), values=0, axis=1)
+    out_header = ['x', 'y', 'z', 'class', 'echo', 'run_f1', 'run_f2', 'flightline', 'intensity']
+    points = tuple(struct.iter_unpack('3l4b2H', bin_data[56:]))   # (20, '3l4b2H', 9)
 
 elif head_ind == (20020715, 1, 1):
-    print(4)
-    points = collect_points(28, '3l4b2H2I', 11)
+    out_header = ['x', 'y', 'z', 'class', 'echo', 'run_f1', 'run_f2', 'flightline', 'intensity', 'time', 'color']
+    points = tuple(struct.iter_unpack('3l4b2H2I', bin_data[56:]))   # (28, '3l4b2H2I', 11)
+
 
 # 8 bit
 elif head_ind == (20010712, 1, 0):
-    points = collect_points(20, '2bH3lI', 7)
-    points = points[:, [3, 4, 5, 0, 2, 1, 2, 6]]
-    points = np.insert(points, (5, 5, 8), values=0, axis=1)
+    out_header = ['class', 'flight', 'intens_echo', 'x', 'y', 'z', 'time']
+    points = tuple(struct.iter_unpack('2bH3lI', bin_data[56:]))
 
 elif head_ind == (20010712, 0, 0):
-    points = collect_points(16, '2bH3l', 6)
-    points = points[:, [3, 4, 5, 0, 2, 1, 2]]
-    points = np.insert(points, (5, 5, 7, 7), values=0, axis=1)
+    out_header = ['class', 'flight', 'intens_echo', 'x', 'y', 'z']
+    points = tuple(struct.iter_unpack('2bH3l', bin_data[56:]))
 
 elif head_ind == (20010712, 1, 1):
-    points = collect_points(24, '2bH3l2I', 8)
-    points = points[:, [3, 4, 5, 0, 2, 1, 2, 6]]
-    points = np.insert(points, (5, 5), values=0, axis=1)
+    out_header = ['class', 'flight', 'intens_echo', 'x', 'y', 'z', 'time', 'color']
+    points = tuple(struct.iter_unpack('2bH3l2I', bin_data[56:]))    # (24, '2bH3l2I', 8)
 
 elif head_ind == (20010712, 0, 1):
-    points = collect_points(20, '2bH3lI', 7)
-    points = points[:, [3, 4, 5, 0, 2, 1, 2, 6]]
-    points = np.insert(points, (5, 5, 7), values=0, axis=1)
+    out_header = ['class', 'flight', 'intens_echo', 'x', 'y', 'z', 'color']
+    points = tuple(struct.iter_unpack('2bH3lI', bin_data[56:]))   # (20, '2bH3lI', 7)
 
 else:
+    out_header = ['неверный формат файла']
     points = ['ищи ошибку']
 
+
 fin_path = Path(r'C:\_igor\work\tp\2021\kk\test_\points.txt')
-np.savetxt(fin_path, points, delimiter=" ")
+with open(fin_path, 'w', newline='') as the_file:
+    points_writer = csv.writer(the_file, delimiter=' ')
+    points_writer.writerow(out_header)
+    for tup in points:
+        points_writer.writerow(tup)
 
 
-time_k = 0.0002   # in each time stamp unit
-coord_k = bin_header[5]   # in each meter
 
-###  to convert intens+echo to two columns - for 8 bit
+
+###  INTERPRETATION OF DATA
+# time_k = 0.0002   # in each time stamp unit
+# coord_k = bin_header[5]   # in each meter
 # a = 16392   # integer intens+echo - 2bits for echo and 14 for intensity
 # b = bin(a)[2:].zfill(16)   # convert to bits
 # echo = int(b[:2], 2)
