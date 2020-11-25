@@ -6,68 +6,79 @@ import csv
 
 # open
 p = Path(r'C:\_igor\work\tp\2021\kk\test_\524_wir_16_notime_color.bin')
-bin_data = p.read_bytes()
-
-# HEADER
-bin_header = struct.unpack('3i4sli3d2i', bin_data[0:56])
-# hdr_size = bin_header[0]   # header size
-# hdr_version = bin_header[1]   # Version 20020715, 20010712, 20010129 or 970404
-# pnt_cnt = bin_header[4]   # Number of points stored
-# bin_units = bin_header[5]   # Units per meter = subpermast * uorpersub
-# bin_time = bin_header[9]   # 32 bit integer time stamps appended to points
-# bin_color = bin_header[10]   # Color values appended to points
-head_ind = (bin_header[1], bin_header[9], bin_header[10])  # to choose calc
-print(bin_header)
-
-# out_header = ['x', 'y', 'z', 'class', 'echo', 'run_f1', 'run_f2', 'flightline', 'intensity', 'time', 'color']
 
 
-# 16 bit
-if head_ind == (20020715, 1, 0):
-    out_header = ['x', 'y', 'z', 'class', 'echo', 'run_f1', 'run_f2', 'flightline', 'intensity', 'time']
-    points = tuple(struct.iter_unpack('3l4b2HI', bin_data[56:]))   # (24, '3l4b2HI', 10)
+def bin_reader(p):
 
-elif head_ind == (20020715, 0, 1):
-    out_header = ['x', 'y', 'z', 'class', 'echo', 'run_f1', 'run_f2', 'flightline', 'intensity', 'color']
-    points = tuple(struct.iter_unpack('3l4b2HI', bin_data[56:]))   # (24, '3l4b2HI', 10)
+    bin_data = p.read_bytes()
 
-elif head_ind == (20020715, 0, 0):
-    out_header = ['x', 'y', 'z', 'class', 'echo', 'run_f1', 'run_f2', 'flightline', 'intensity']
-    points = tuple(struct.iter_unpack('3l4b2H', bin_data[56:]))   # (20, '3l4b2H', 9)
+    # HEADER
+    bin_header = struct.unpack('3i4sli3d2i', bin_data[0:56])
+    # hdr_size = bin_header[0]   # header size
+    # hdr_version = bin_header[1]   # Version 20020715, 20010712, 20010129 or 970404
+    # pnt_cnt = bin_header[4]   # Number of points stored
+    # bin_units = bin_header[5]   # Units per meter = subpermast * uorpersub
+    # bin_time = bin_header[9]   # 32 bit integer time stamps appended to points
+    # bin_color = bin_header[10]   # Color values appended to points
+    print(bin_header)
 
-elif head_ind == (20020715, 1, 1):
-    out_header = ['x', 'y', 'z', 'class', 'echo', 'run_f1', 'run_f2', 'flightline', 'intensity', 'time', 'color']
-    points = tuple(struct.iter_unpack('3l4b2H2I', bin_data[56:]))   # (28, '3l4b2H2I', 11)
-
-
-# 8 bit
-elif head_ind == (20010712, 1, 0):
-    out_header = ['class', 'flight', 'intens_echo', 'x', 'y', 'z', 'time']
-    points = tuple(struct.iter_unpack('2bH3lI', bin_data[56:]))
-
-elif head_ind == (20010712, 0, 0):
-    out_header = ['class', 'flight', 'intens_echo', 'x', 'y', 'z']
-    points = tuple(struct.iter_unpack('2bH3l', bin_data[56:]))
-
-elif head_ind == (20010712, 1, 1):
-    out_header = ['class', 'flight', 'intens_echo', 'x', 'y', 'z', 'time', 'color']
-    points = tuple(struct.iter_unpack('2bH3l2I', bin_data[56:]))    # (24, '2bH3l2I', 8)
-
-elif head_ind == (20010712, 0, 1):
-    out_header = ['class', 'flight', 'intens_echo', 'x', 'y', 'z', 'color']
-    points = tuple(struct.iter_unpack('2bH3lI', bin_data[56:]))   # (20, '2bH3lI', 7)
-
-else:
-    out_header = ['неверный формат файла']
-    points = ['ищи ошибку']
+    # out_header = ['x', 'y', 'z', 'class', 'echo', 'run_f1', 'run_f2', 'flightline', 'intensity', 'time', 'color']
 
 
-fin_path = Path(r'C:\_igor\work\tp\2021\kk\test_\points.txt')
-with open(fin_path, 'w', newline='') as the_file:
-    points_writer = csv.writer(the_file, delimiter=' ')
-    points_writer.writerow(out_header)
-    for tup in points:
-        points_writer.writerow(tup)
+    # 16 bit
+    if bin_header[1] == 20020715:
+        if bin_header[9] != 0 and bin_header[10] == 0:
+            out_header = ['x', 'y', 'z', 'class', 'echo', 'run_f1', 'run_f2', 'flightline', 'intensity', 'time']
+            points = tuple(struct.iter_unpack('3L4B2HI', bin_data[56:]))   # (24, '3l4b2HI', 10)
+
+        elif bin_header[9] == 0 and bin_header[10] != 0:
+            out_header = ['x', 'y', 'z', 'class', 'echo', 'run_f1', 'run_f2', 'flightline', 'intensity', 'color']
+            points = tuple(struct.iter_unpack('3L4B2HI', bin_data[56:]))   # (24, '3l4b2HI', 10)
+
+        elif bin_header[9] == 0 and bin_header[10] == 0:
+            out_header = ['x', 'y', 'z', 'class', 'echo', 'run_f1', 'run_f2', 'flightline', 'intensity']
+            points = tuple(struct.iter_unpack('3L4B2H', bin_data[56:]))   # (20, '3l4b2H', 9)
+
+        elif bin_header[9] != 0 and bin_header[10] != 0:
+            out_header = ['x', 'y', 'z', 'class', 'echo', 'run_f1', 'run_f2', 'flightline', 'intensity', 'time', 'color']
+            points = tuple(struct.iter_unpack('3L4B2H2I', bin_data[56:]))   # (28, '3l4b2H2I', 11)
+
+
+    # 8 bit
+    elif bin_header[1] == 20010712:
+        if bin_header[9] != 0 and bin_header[10] == 0:
+            out_header = ['class', 'flight', 'intens_echo', 'x', 'y', 'z', 'time']
+            points = tuple(struct.iter_unpack('2BH3LI', bin_data[56:]))
+
+        elif bin_header[9] == 0 and bin_header[10] == 0:
+            out_header = ['class', 'flight', 'intens_echo', 'x', 'y', 'z']
+            points = tuple(struct.iter_unpack('2BH3L', bin_data[56:]))
+
+        elif bin_header[9] != 0 and bin_header[10] != 0:
+            out_header = ['class', 'flight', 'intens_echo', 'x', 'y', 'z', 'time', 'color']
+            points = tuple(struct.iter_unpack('2BH3L2I', bin_data[56:]))    # (24, '2bH3l2I', 8)
+
+        elif bin_header[9] == 0 and bin_header[10] != 0:
+            out_header = ['class', 'flight', 'intens_echo', 'x', 'y', 'z', 'color']
+            points = tuple(struct.iter_unpack('2BH3LI', bin_data[56:]))   # (20, '2bH3lI', 7)
+
+    else:
+        out_header = ['неверный формат файла']
+        points = ['ищи ошибку']
+
+
+    return out_header, points
+
+
+bin_reader(p)
+
+
+# fin_path = Path(r'C:\_igor\work\tp\2021\kk\test_\points.txt')
+# with open(fin_path, 'w', newline='') as the_file:
+#     points_writer = csv.writer(the_file, delimiter=' ')
+#     points_writer.writerow(out_header)
+#     for tup in points:
+#         points_writer.writerow(tup)
 
 
 
