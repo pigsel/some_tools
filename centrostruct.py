@@ -10,10 +10,10 @@ from shapely.geometry import Point, Polygon
 import csv
 
 # пути
-p = Path(r'C:\_igor\work\tp\2021\kk\test_\524_wir_16_notime_nocolor.bin')
-p_cgtw = Path(r'C:\_igor\work\tp\2021\kk\test_\tower331.pts')   # path to ctow
-fin_cgt = Path(r'C:\_igor\work\tp\2021\kk\test_\cgtow_corr.txt')
-fin_top = Path(r'C:\_igor\work\tp\2021\kk\test_\tops_corr.txt')
+p = Path(r'D:\python\some_tools\524_wir_16_notime_nocolor.bin')
+p_cgtw = Path(r'D:\python\some_tools\tower331.pts')   # path to ctow
+fin_cgt = Path(r'D:\python\some_tools\cgtow_corr.txt')
+fin_top = Path(r'D:\python\some_tools\tops_corr.txt')
 
 
 # переменные
