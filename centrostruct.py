@@ -1,6 +1,12 @@
 # centroids of structures
 # using lidar data of powerline structures to find their axes
 
+# сделать:
+# - варианты без точек
+# - вынести функции
+# - сделать репорт с выводом на экран
+
+
 import struct
 import numpy as np
 import pandas as pd
@@ -40,7 +46,7 @@ def bin_reader(p):
     # bin_units = bin_header[5]   # Units per meter = subpermast * uorpersub
     # bin_time = bin_header[9]   # 32 bit integer time stamps appended to points
     # bin_color = bin_header[10]   # Color values appended to points
-    head_ind = (bin_header[1], bin_header[9], bin_header[10])  # to choose calc
+    # head_ind = (bin_header[1], bin_header[9], bin_header[10])  # to choose calc
     print(bin_header)
 
     # out_header = ['x', 'y', 'z', 'class', 'echo', 'run_f1', 'run_f2', 'flightline', 'intensity', 'time', 'color']
@@ -98,11 +104,10 @@ def file_write(path):
             points_writer.writerow(tup)
 
 
-def set_grd_level(grd_array):
-    pass
-
-
-
+def z_level(x, y, g_array, radius):
+    s = Point(x, y)  # используем уточненную координату
+    grd_cut2 = g_array[g_array.within(s.buffer(radius))]  # вырезаем поуже
+    return np.mean(grd_cut2['z'])  # новый уровень земли
 
 
 p_header, i_points = bin_reader(p)   # вызываем функцию чтения файла
@@ -145,19 +150,23 @@ for n in range(len(cgtw_g)):
 
     # добавить проверку есть ли чтото в массивах
     if len(tow_cut) == 0 and len(grd_cut) == 0:
-        # если не найдено точек опоры и земли
-        cgt = 0   # изменить на значение из сжтоу
-        top = 0
+        # если не найдено точек опоры и земли оставляем исходные
+        cgt = tuple(cgtw_g.loc[n, i] for i in ('id', 'x', 'y', 'z'))
+        top = cgt
 
     elif len(tow_cut) == 0 and len(grd_cut) != 0:
-        # если точек от опоры нет, но есть земля
+        # если точек от опоры нет, но есть земля уточняем землю
         cgt = 0   # изменить на значение из сжтоу
-        top = 0
+        top = cgt
+
+    elif len(tow_cut) != 0 and len(grd_cut) == 0:
+        # если есть только точки от опоры
+        cgt = 0   # изменить на значение из сжтоу
+        top = cgt
+
 
     elif len(tow_cut) != 0 and len(grd_cut) != 0:
         # если всё нормально
-        cgt = 0   # изменить на значение из сжтоу
-        top = 0
         grd_lvl = np.mean(grd_cut['z'])   # средняя высота земли для расчета примерной высоты опоры
         tow_top = max(tow_cut['z'])   # верхнее отражение от опоры (наивысшая точка)
 
@@ -176,9 +185,7 @@ for n in range(len(cgtw_g)):
         bot_fig = bot_pol.convex_hull.buffer(polybuff).centroid   # строим внешний контур и находим его центроид
 
         # теперь уточним высоту на земле, для этого возьмем радиус поуже
-        s = Point(bot_fig.x, bot_fig.y)   # используем уточненную координату
-        grd_cut2 = grd_cut[grd_cut.within(s.buffer(buf_radius_2))]  # вырезаем поуже
-        grd_lvl = np.mean(grd_cut2['z'])  # новый уровень земли
+        grd_lvl = z_level(bot_fig.x, bot_fig.y, grd_cut, buf_radius_2)
 
         # итоговая координата опоры на земле
         cgt = (cgtw_g.loc[n, 'id'], round(bot_fig.x / 100, 2), round(bot_fig.y / 100, 2), round(grd_lvl / 100, 2))
@@ -188,7 +195,7 @@ for n in range(len(cgtw_g)):
     else:
         # если ничего не понятно
         cgt = ('error', 0, 0, 0)
-        top = ('error', 0, 0, 0)
+        top = cgt
 
     # теперь добавляем полученное в списки
     cgtow_corr.append(cgt)
