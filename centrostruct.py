@@ -157,22 +157,18 @@ for n in range(len(cgtw_g)):
         top = cgt
 
     elif len(tow_cut) == 0 and len(grd_cut) != 0:
-        # если точек от опоры нет, но есть земля уточняем землю
+        # если точек от опоры нет, но есть земля - уточняем землю
         grd_lvl = z_level(n_x, n_y, grd_cut, buf_radius_2)
         cgt = (n_id, n_x, n_y, round(grd_lvl / 100, 2))
         top = cgt
 
-    elif len(tow_cut) != 0 and len(grd_cut) == 0:
-        # если есть только точки от опоры
+    elif len(tow_cut) != 0:
+        # если есть точки опоры
+        if len(grd_cut) != 0:
+            grd_lvl = np.mean(grd_cut['z'])   # средняя высота земли для расчета примерной высоты опоры
+        else:
+            grd_lvl = min(tow_cut['z'])   # если нет земли нижняя точка определяется по нижнему отражению опоры
 
-
-        cgt = 0   # изменить на значение из сжтоу
-        top = cgt
-
-
-    elif len(tow_cut) != 0 and len(grd_cut) != 0:
-        # если всё нормально
-        grd_lvl = np.mean(grd_cut['z'])   # средняя высота земли для расчета примерной высоты опоры
         tow_top = max(tow_cut['z'])   # верхнее отражение от опоры (наивысшая точка)
 
         # начинаем с верхушки опоры
@@ -190,12 +186,13 @@ for n in range(len(cgtw_g)):
         bot_fig = bot_pol.convex_hull.buffer(polybuff).centroid   # строим внешний контур и находим его центроид
 
         # теперь уточним высоту на земле, для этого возьмем радиус поуже
-        grd_lvl = z_level(bot_fig.x, bot_fig.y, grd_cut, buf_radius_2)
+        if len(grd_cut) != 0:
+            grd_lvl = z_level(bot_fig.x, bot_fig.y, grd_cut, buf_radius_2)
 
         # итоговая координата опоры на земле
-        cgt = (cgtw_g.loc[n, 'id'], round(bot_fig.x / 100, 2), round(bot_fig.y / 100, 2), round(grd_lvl / 100, 2))
+        cgt = (n_id, round(bot_fig.x / 100, 2), round(bot_fig.y / 100, 2), round(grd_lvl / 100, 2))
         # итоговая координата опоры на верхушке
-        top = (cgtw_g.loc[n, 'id'], round(up_fig.x / 100, 2), round(up_fig.y / 100, 2), round(tow_top / 100, 2))
+        top = (n_id, round(up_fig.x / 100, 2), round(up_fig.y / 100, 2), round(tow_top / 100, 2))
 
     else:
         # если ничего не понятно
