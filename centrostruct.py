@@ -147,20 +147,25 @@ for n in range(len(cgtw_g)):
     tow_buf = cgtw_g.loc[n, 'geometry'].buffer(buf_radius)   # делаем буфер
     tow_cut = tows_g[tows_g.within(tow_buf)]   # вырезаем то что попало в буфер
     grd_cut = grd_g[grd_g.within(tow_buf)]
+    n_id = cgtw_g.loc[n, 'id']   # id initial
+    n_x, n_y, n_z = (round(cgtw_g.loc[n, i]/100, 2) for i in ('x', 'y', 'z'))   # xyz initial
 
     # добавить проверку есть ли чтото в массивах
     if len(tow_cut) == 0 and len(grd_cut) == 0:
         # если не найдено точек опоры и земли оставляем исходные
-        cgt = tuple(cgtw_g.loc[n, i] for i in ('id', 'x', 'y', 'z'))
+        cgt = (n_id, n_z, n_y, n_z)
         top = cgt
 
     elif len(tow_cut) == 0 and len(grd_cut) != 0:
         # если точек от опоры нет, но есть земля уточняем землю
-        cgt = 0   # изменить на значение из сжтоу
+        grd_lvl = z_level(n_x, n_y, grd_cut, buf_radius_2)
+        cgt = (n_id, n_x, n_y, round(grd_lvl / 100, 2))
         top = cgt
 
     elif len(tow_cut) != 0 and len(grd_cut) == 0:
         # если есть только точки от опоры
+
+
         cgt = 0   # изменить на значение из сжтоу
         top = cgt
 
