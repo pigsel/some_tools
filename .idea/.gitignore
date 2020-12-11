@@ -1,3 +1,9 @@
 # Default ignored files
 /shelf/
 /workspace.xml
+/misc.xml
+/modules.xml
+/some_tools.iml
+/vcs.xml
+/.gitignore
+/inspectionProfiles
