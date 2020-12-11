@@ -5,6 +5,7 @@
 # - варианты без точек - проверить
 # - вынести функции - посмотреть что еще
 # - сделать репорт с выводом на экран !!
+# - вывод в DXF
 
 
 import struct
@@ -16,10 +17,10 @@ from shapely.geometry import Point, Polygon
 import csv
 
 # пути
-p = Path(r'D:\python\some_tools\524_wir_16_notime_nocolor.bin')
-p_cgtw = Path(r'D:\python\some_tools\tower331.pts')   # path to ctow
-fin_cgt = Path(r'D:\python\some_tools\cgtow_corr.txt')
-fin_top = Path(r'D:\python\some_tools\tops_corr.txt')
+p = Path(r'/524_wir_16_notime_nocolor.bin')
+p_cgtw = Path(r'/tower331.pts')   # path to ctow
+fin_cgt = Path(r'/cgtow_corr.txt')
+fin_top = Path(r'/tops_corr.txt')
 
 
 # переменные
