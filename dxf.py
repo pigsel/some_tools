@@ -4,116 +4,45 @@
 #############################################
 #   0               - дальше идет объект
 # SECTION           - старт секции
-#   2               - тип секции (имя)
-# HEADER
-#   9               - variable name identifier (только для HEADER)
-# $ACADVER          - версия автокада (тег)
-#   1               - код группы (тип текст)
-# AC1009            - версия автокада (AC1009 = R11 and R12, AC1015 = AutoCAD 2000)
-#   9
-# $PLINEGEN         - Governs the generation of linetype patterns around the vertices of a 2D polyline:
-                    # 1 = Linetype is generated in a continuous pattern around vertices of the polyline
-                    # 0 = Each segment of the polyline starts and ends with a dash
-#  70               - код группы (Integer values, such as repeat counts, flag bits, or modes)
-#      1            - см. выше - полилиния как продолжение
-#   9
-# $PSLTSCALE         - Controls paper space linetype scaling: 1 = No special linetype scaling
-#  70
-#      1             - No special linetype scaling
-#   9
-# $LWDISPLAY         - Controls the display of lineweights on the Model or Layout tab: 0 = Lineweight is not displayed
-# 290                - код группы (Boolean flag value)
-#      1             - Lineweight is displayed
-#   0                - конец секции
-# ENDSEC             - конец секции
+####################
+# дальше я пропускаю секции с заголовком, таблицами и прочей ерундой,
+# т.к. и без них всё работает в том виде как мне нужно
+# в таблицах вероятно можно настроить разбиение по слоям или чтото подобное
+# также пропускаю лишние на мой взгляд параметры (не влияют на отображение)
+#####################
+#   2          - тип секции (дальше идет имя)
+# ENTITIES     - секция самих объектов
+
+#   0          - тип объекта или имя команды
+# POLYLINE     - полилиния
+
+#  62          - Color number
+#      6       - номер цвета
+
+#  70          - смотри ниже
+#    136       - Polyline flag (bit-coded); default is 0:
+             # 1 = This is a closed polyline (or a polygon mesh closed in the M direction)
+             # 2 = Curve-fit vertices have been added
+             # 4 = Spline-fit vertices have been added
+             # 8 = This is a 3D polyline
+             # 16 = This is a 3D polygon mesh
+             # 32 = The polygon mesh is closed in the N direction
+             # 64 = The polyline is a polyface mesh
+             # 128 = The linetype pattern is generated continuously around the vertices of this polyline
+         ##### мы пишем 136 тк 8 бит на 3д и 128бит на продолжающуюся линию
+
 #   0
-# SECTION
-#   2
-# TABLES
-#   0
-# TABLE
-#   2
-# LTYPE
-#  70
-#      2
-#   0
-# LTYPE
-#   2
-# SOLID
-#  70
-#      0
-#   3
-# Solid line style
-#  72
-#     65
-#  73
-#      0
-#  40
-# 0.00
-#   0
-# LTYPE
-#   2
-# DASHED
-#  70
-#      0
-#   3
-# Dashed line style
-#  72
-#     65
-#  73
-#      2
-#  40
-# 1.00
-#  49
-# 0.60
-#  74
-#      0
-#  49
-# -0.40
-#  74
-#      0
-#   0
-# ENDTAB
-#   0
-# TABLE
-#   2
-# APPID
-#  70
-#      1
-#   0
-# APPID
-#   2
-# ACAD
-#  70
-#      0
-#   0
-# ENDTAB
-#   0
-# ENDSEC
-#   0
-# SECTION
-#   2
-# ENTITIES
-#   0
-# POLYLINE
-#   6
-# SOLID
-#  62
-#      6
-#  66
-#      1
-#  70
-#    136
-#   0
-# VERTEX
+# VERTEX          - далее описываем каждый вертекс
+
 #  10
-# 1877818.25
+# 1877818.25      - x
+
 #  20
-# 5818882.95
+# 5818882.95      - y
+
 #  30
-# 69.21
-#  70
-#     32
+# 69.21           - z
+
 #   0
 # VERTEX
 #  10
@@ -122,10 +51,52 @@
 # 5818883.37
 #  30
 # 68.90
-#  70
-#     32
+
+#  ... и т.д. все вертексы
+
 #   0
-#####################################
+# SEQEND    - конец полилинии
 
+###############################
+#   0
+# LINE   - простая линия (два конца)
 
+#  62
+#      5   - номер цвета
+
+#  10    - первая координата
+# 1877818.18
+#  20
+# 5818882.86
+#  30
+# 62.70
+
+#  11     - вторая координата
+# 1877818.25
+#  21
+# 5818882.95
+#  31
+# 62.61
+
+##########################
+
+#   0
+# ENDSEC    - конец ENTITIES
+
+#   0
+# EOF          -   конец файла
+
+#################################
+# - номера цветов:
+# 0 - белый
+# 1 - красный
+# 2 - желтый
+# 3 - зеленый
+# 4 - голубой
+# 5 - синий
+# 6 - сиреневый
+# 7 - опять белый
+# 8 - серый потемнее
+# 9 - серый посветлее
+#################################
 
