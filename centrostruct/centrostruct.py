@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 from pathlib import Path
-from shapely.geometry import Point, Polygon
+from shapely.geometry import Point, MultiPoint, Polygon
 import csv
 
 # пути
@@ -106,10 +106,18 @@ def file_write(path, points_arr):
             points_writer.writerow(tup)
 
 
-def z_level(x, y, g_array, radius):
+def z_level_gpd(x, y, g_array, radius):
+    # for geopandas array
     s = Point(x, y)  # используем уточненную координату
     grd_cut2 = g_array[g_array.within(s.buffer(radius))]  # вырезаем поуже
     return np.mean(grd_cut2['z'])  # новый уровень земли
+
+
+def z_level_shp(x, y, g_array, radius):
+    # for shapely array
+    s = Point(x, y)  # используем уточненную координату
+    grd_cut2 = g_array.intersection(s.buffer(radius))   # вырезаем поуже
+    return np.mean(grd_cut2, axis=0)[2]  # новый уровень земли
 
 
 def report(text, rep):
@@ -121,21 +129,27 @@ report('сначала загружаем бин файл', rprt)
 
 p_header, i_points = bin_reader(p)   # вызываем функцию чтения файла
 
-# импортные точки переводим в панду и удаляем ненужные колонки
-p_points = pd.DataFrame(i_points, columns=p_header)
-p_points = p_points[['x', 'y', 'z', 'class']]
-del i_points, p_header   # удаляем, больше не нужно
+# new version (get rid of pandas)
+grd_p = []
+str_p = []
 
-# из общего массива точек извлекаем только нужные классы (землю и тела опор)
-grd = p_points[p_points['class'] == grd_class][['x', 'y', 'z']]
-tows = p_points[p_points['class'] == structure_points_class][['x', 'y', 'z']]
-del p_points   # удаляем ненужное
-report(f'загружено точек опор: {len(grd)}, земли: {len(tows)}', rprt)
+for i in range(len(i_points)):
+    po = list(i_points[i])   # each point in i_points (all values)
+    if po[p_header.index('class')] == grd_class:
+        grd_p.append(list(po[p_header.index(z)] for z in ['x', 'y', 'z']))   # add grd points
+    elif po[p_header.index('class')] == structure_points_class:
+        str_p.append(list(po[p_header.index(z)] for z in ['x', 'y', 'z']))   # add structure points
+
+report(f'загружено точек опор: {len(grd_p)}, земли: {len(str_p)}', rprt)
+
+del i_points    # удаляем т.к. не нужно больше
+str_p = MultiPoint(str_p)   # делаем массивы shapely (multipoints - z points)
+grd_p = MultiPoint(grd_p)
 
 # переводим панду в геопанду
-grd_g = gpd.GeoDataFrame(grd, crs="EPSG:2193", geometry=gpd.points_from_xy(grd['x'], grd['y'], grd['z']))
-tows_g = gpd.GeoDataFrame(tows, crs="EPSG:2193", geometry=gpd.points_from_xy(tows['x'], tows['y'], tows['z']))
-report('произведена геопривязка массивов', rprt)
+# grd_g = gpd.GeoDataFrame(grd, crs="EPSG:2193", geometry=gpd.points_from_xy(grd['x'], grd['y'], grd['z']))
+# tows_g = gpd.GeoDataFrame(tows, crs="EPSG:2193", geometry=gpd.points_from_xy(tows['x'], tows['y'], tows['z']))
+# report('произведена геопривязка массивов', rprt)
 
 # предварительные координаты опор в панду
 c_tab = pd.read_csv(p_cgtw, sep='\s+', header=None, names=['id', 'x', 'y', 'z'])   # read to pandas
@@ -153,8 +167,8 @@ cgtw_g = gpd.GeoDataFrame(c_tab, crs="EPSG:2193", geometry=gpd.points_from_xy(c_
 # дальше цикл прохода по каждой опоре и уточнение ее центра
 for n in range(len(cgtw_g)):
     tow_buf = cgtw_g.loc[n, 'geometry'].buffer(buf_radius)   # делаем буфер
-    tow_cut = tows_g[tows_g.within(tow_buf)]   # вырезаем то что попало в буфер
-    grd_cut = grd_g[grd_g.within(tow_buf)]
+    tow_cut = str_p.intersection(tow_buf)   # вырезаем то что попало в буфер
+    grd_cut = grd_p.intersection(tow_buf)
     n_id = cgtw_g.loc[n, 'id']   # id initial
     n_x, n_y, n_z = (round(cgtw_g.loc[n, i]/100, 2) for i in ('x', 'y', 'z'))   # xyz initial
 
@@ -167,7 +181,7 @@ for n in range(len(cgtw_g)):
 
     elif len(tow_cut) == 0 and len(grd_cut) != 0:
         # если точек от опоры нет, но есть земля - уточняем землю
-        grd_lvl = z_level(n_x, n_y, grd_cut, buf_radius_2)
+        grd_lvl = z_level_shp(n_x, n_y, grd_cut, buf_radius_2)
         cgt = (n_id, n_x, n_y, round(grd_lvl / 100, 2))
         top = cgt
         report(f'опора: {n_id} - уточнена только высота (ТЛО опоры не найдены)', rprt)
@@ -175,12 +189,14 @@ for n in range(len(cgtw_g)):
     elif len(tow_cut) != 0:
         # если есть точки опоры
         if len(grd_cut) != 0:
-            grd_lvl = np.mean(grd_cut['z'])   # средняя высота земли для расчета примерной высоты опоры
+            grd_lvl = np.mean(grd_cut, axis=0)[2]   # средняя высота земли для расчета примерной высоты опоры
         else:
-            grd_lvl = min(tow_cut['z'])   # если нет земли нижняя точка определяется по нижнему отражению опоры
+            grd_lvl = np.min(tow_cut, axis=0)[2]   # если нет земли нижняя точка определяется по нижнему отражению опоры
             report(f'опора: {n_id} - нет ТЛО земли, высота определена по нижнему отражению опоры', rprt)
 
-        tow_top = max(tow_cut['z'])   # верхнее отражение от опоры (наивысшая точка)
+        tow_top = np.max(tow_cut, axis=0)[2]   # верхнее отражение от опоры (наивысшая точка)
+
+#TODO  исправил досюда
 
         # начинаем с верхушки опоры
         up_lvl = (tow_top - grd_lvl) * ((100 - up_str) / 100) + grd_lvl
