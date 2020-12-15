@@ -1,10 +1,11 @@
 # centroids of structures
 # using lidar data of powerline structures to find their axes
 
-# TODO - вынести функции - посмотреть что еще
-# TODO - вывод в DXF
-# TODO - интерфейс !
-# TODO - добавить второй вариант расчета - с прямоугольником
+# TODO - 2 вынести функции - посмотреть что еще
+# TODO - 3 вывод в DXF
+# TODO - 4 интерфейс !
+# TODO - 1 добавить общий контур массивов чтобы не перебирать точки
+
 
 import struct
 import numpy as np
@@ -19,6 +20,8 @@ p = Path(r'D:\python\some_tools\centrostruct\524_wir_16_notime_nocolor.bin')
 p_cgtw = Path(r'D:\python\some_tools\centrostruct\tower331.pts')   # path to ctow
 fin_cgt = Path(r'D:\python\some_tools\centrostruct\cgtow_corr.txt')
 fin_top = Path(r'D:\python\some_tools\centrostruct\tops_corr.txt')
+fin_cgt_2 = Path(r'D:\python\some_tools\centrostruct\cgtow_corr_m2.txt')
+fin_top_2 = Path(r'D:\python\some_tools\centrostruct\tops_corr_m2.txt')
 repr_path = Path(r'D:\python\some_tools\centrostruct\cst_report.txt')
 
 # переменные
@@ -31,8 +34,8 @@ bot_str = 30    # процент от высоты опоры снизу для 
 up_str = 10    # процент от высоты опоры сверху для определения центра
 cgtow_corr = []   # обновленные координаты опор середина
 tower_tops = []   # центры верхушек опор середина
-cgtow_corr2 = []   # обновленные координаты опор середина (метод 2)
-tower_tops2 = []   # центры верхушек опор середина (метод 2)
+cgtow_corr_2 = []   # обновленные координаты опор середина (метод 2)
+tower_tops_2 = []   # центры верхушек опор середина (метод 2)
 rprt = []   # репорт
 
 
@@ -176,14 +179,14 @@ for n in range(len(cgtw_g)):
     if len(tow_cut) == 0 and len(grd_cut) == 0:
         # если не найдено точек опоры и земли оставляем исходные
         cgt = (n_id, n_x, n_y, n_z)
-        top = cgt
+        top = cgt_2 = top_2 = cgt
         report(f'опора: {n_id} - оставлены исходные координаты (ТЛО не найдены)', rprt)
 
     elif len(tow_cut) == 0 and len(grd_cut) != 0:
         # если точек от опоры нет, но есть земля - уточняем землю
         grd_lvl = z_level_shp(n_x, n_y, grd_cut, buf_radius_2)
         cgt = (n_id, n_x, n_y, round(grd_lvl / 100, 2))
-        top = cgt
+        top = cgt_2 = top_2 = cgt
         report(f'опора: {n_id} - уточнена только высота (ТЛО опоры не найдены)', rprt)
 
     elif len(tow_cut) != 0:
@@ -196,53 +199,63 @@ for n in range(len(cgtw_g)):
 
         tow_top = np.max(tow_cut, axis=0)[2]   # верхнее отражение от опоры (наивысшая точка)
 
-#TODO  исправил досюда
 
         # начинаем с верхушки опоры
         up_lvl = (tow_top - grd_lvl) * ((100 - up_str) / 100) + grd_lvl
-        tow_up = tow_cut[tow_cut['z'] > up_lvl]   # upper points
+        tow_up = []
+        for i in range(len(tow_cut)):
+            if tow_cut[i].z > up_lvl:
+                tow_up.append(tow_cut[i])   # upper points
+        tow_up = MultiPoint(tow_up)
         # находим центр
-        up_pol = Polygon(tow_up.iloc[i, [0, 1]] for i in range(len(tow_up)))   # переводим в полигон
-        up_fig = up_pol.convex_hull.buffer(polybuff).centroid   # строим внешний контур, затем буфер вокруг него и центроид
+        up_fig = tow_up.convex_hull.buffer(polybuff).centroid   # центр буфера вокруг описывающего полигона
+        # method 2
+        up_fig_2 = tow_up.minimum_rotated_rectangle.centroid   # центр минимального описывающего прямоугольника
 
         # работа с основанием опоры - в пределах верхушки + up_buf
         bot_lvl = (tow_top - grd_lvl) * (bot_str / 100) + grd_lvl   # высота части основания
-        tow_bot = tow_cut[tow_cut['z'] < bot_lvl]   # вырезаем массив опоры у основания
+        tow_bot = []
+        for i in range(len(tow_cut)):
+            if tow_cut[i].z < bot_lvl:
+                tow_bot.append(tow_cut[i])   # upper points
+        tow_bot = MultiPoint(tow_bot)
         # находим центр
-        bot_pol = Polygon(tow_bot.iloc[i, [0, 1]] for i in range(len(tow_bot)))   # переводим в полигон
-        bot_fig = bot_pol.convex_hull.buffer(polybuff).centroid   # строим внешний контур и находим его центроид
+        bot_fig = tow_bot.convex_hull.buffer(polybuff).centroid   # центр буфера вокруг описывающего полигона
+        # method 2
+        bot_fig_2 = tow_bot.minimum_rotated_rectangle.centroid   # центр минимального описывающего прямоугольника
 
         # теперь уточним высоту на земле, для этого возьмем радиус поуже
         if len(grd_cut) != 0:
-            grd_lvl = z_level(bot_fig.x, bot_fig.y, grd_cut, buf_radius_2)
+            grd_lvl = z_level_shp(bot_fig.x, bot_fig.y, grd_cut, buf_radius_2)
 
-        # итоговая координата опоры на земле
+        # итоговые координаты
         cgt = (n_id, round(bot_fig.x / 100, 2), round(bot_fig.y / 100, 2), round(grd_lvl / 100, 2))
-        # итоговая координата опоры на верхушке
         top = (n_id, round(up_fig.x / 100, 2), round(up_fig.y / 100, 2), round(tow_top / 100, 2))
+        # второй метод
+        cgt_2 = (n_id, round(bot_fig_2.x / 100, 2), round(bot_fig_2.y / 100, 2), round(grd_lvl / 100, 2))
+        top_2 = (n_id, round(up_fig_2.x / 100, 2), round(up_fig_2.y / 100, 2), round(tow_top / 100, 2))
 
-        report(f'опора: {n_id} - координаты уточнены методом 1', rprt)
+        report(f'опора: {n_id} - координаты уточнены', rprt)
 
         # metod 2
-        up_rect = gpd.GeoSeries(tow_up.minimum_rotated_rectangle)
-
-
-
-
-
 
     else:
         # если ничего не понятно
         cgt = ('error', 0, 0, 0)
-        top = cgt
+        top = top_2 = cgt_2 = cgt
         report(f'опора: {n_id} - неизвестная ошибка', rprt)
 
     # теперь добавляем полученное в списки
     cgtow_corr.append(cgt)
     tower_tops.append(top)
+    cgtow_corr_2.append(cgt_2)
+    tower_tops_2.append(top_2)
+
 
 file_write(fin_cgt, cgtow_corr)
 file_write(fin_top, tower_tops)
+file_write(fin_cgt_2, cgtow_corr_2)
+file_write(fin_top_2, tower_tops_2)
 report('записаны выходные файлы: cgtow_corr.txt, tops_corr.txt', rprt)
 
 #  сохраняем репорт на последок
