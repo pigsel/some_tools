@@ -15,12 +15,11 @@ from shapely.geometry import Point, Polygon
 import csv
 
 # пути
-p = Path('524_wir_16_notime_nocolor.bin')
-p_cgtw = Path('tower331.pts')   # path to ctow
-fin_cgt = Path('cgtow_corr.txt')
-fin_top = Path('tops_corr.txt')
-repr_path = Path('cst_report.txt')
-
+p = Path(r'D:\python\some_tools\centrostruct\524_wir_16_notime_nocolor.bin')
+p_cgtw = Path(r'D:\python\some_tools\centrostruct\tower331.pts')   # path to ctow
+fin_cgt = Path(r'D:\python\some_tools\centrostruct\cgtow_corr.txt')
+fin_top = Path(r'D:\python\some_tools\centrostruct\tops_corr.txt')
+repr_path = Path(r'D:\python\some_tools\centrostruct\cst_report.txt')
 
 # переменные
 grd_class = 2   # номер класса с точками земли
@@ -32,6 +31,8 @@ bot_str = 30    # процент от высоты опоры снизу для 
 up_str = 10    # процент от высоты опоры сверху для определения центра
 cgtow_corr = []   # обновленные координаты опор середина
 tower_tops = []   # центры верхушек опор середина
+cgtow_corr2 = []   # обновленные координаты опор середина (метод 2)
+tower_tops2 = []   # центры верхушек опор середина (метод 2)
 rprt = []   # репорт
 
 
@@ -204,7 +205,15 @@ for n in range(len(cgtw_g)):
         # итоговая координата опоры на верхушке
         top = (n_id, round(up_fig.x / 100, 2), round(up_fig.y / 100, 2), round(tow_top / 100, 2))
 
-        report(f'опора: {n_id} - координаты уточнены', rprt)
+        report(f'опора: {n_id} - координаты уточнены методом 1', rprt)
+
+        # metod 2
+        up_rect = gpd.GeoSeries(tow_up.minimum_rotated_rectangle)
+
+
+
+
+
 
     else:
         # если ничего не понятно
