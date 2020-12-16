@@ -1,10 +1,13 @@
 # centroids of structures
 # using lidar data of powerline structures to find their axes
 
+# TODO - 1 добавить общий контур массивов чтобы не перебирать точки
 # TODO - 2 вынести функции - посмотреть что еще
 # TODO - 3 вывод в DXF
+# TODO - 3 добавить разворот
+# TODO - 3 добавить начальное разбиение бина на опоры
 # TODO - 4 интерфейс !
-# TODO - 1 добавить общий контур массивов чтобы не перебирать точки
+
 
 
 import struct
@@ -123,6 +126,13 @@ def z_level_shp(x, y, g_array, radius):
     return np.mean(grd_cut2, axis=0)[2]  # новый уровень земли
 
 
+def isinbounds(x, y, bounds):
+    if bounds[2] >= x >= bounds[0] and bounds[3] >= y >= bounds[1]:
+        return True
+    else:
+        return False
+
+
 def report(text, rep):
     print(text)
     rep.append(text)
@@ -130,9 +140,9 @@ def report(text, rep):
 
 report('сначала загружаем бин файл', rprt)
 
-p_header, i_points = bin_reader(p)   # вызываем функцию чтения файла
+p_header, i_points = bin_reader(p)   # вызываем функцию чтения файла и получаем массив
 
-# new version (get rid of pandas)
+# collect only grd and structure xyz
 grd_p = []
 str_p = []
 
@@ -149,10 +159,8 @@ del i_points    # удаляем т.к. не нужно больше
 str_p = MultiPoint(str_p)   # делаем массивы shapely (multipoints - z points)
 grd_p = MultiPoint(grd_p)
 
-# переводим панду в геопанду
-# grd_g = gpd.GeoDataFrame(grd, crs="EPSG:2193", geometry=gpd.points_from_xy(grd['x'], grd['y'], grd['z']))
-# tows_g = gpd.GeoDataFrame(tows, crs="EPSG:2193", geometry=gpd.points_from_xy(tows['x'], tows['y'], tows['z']))
-# report('произведена геопривязка массивов', rprt)
+# x-y bounding box is a (minx, miny, maxx, maxy) tuple
+str_bounds = str_p.bounds
 
 # предварительные координаты опор в панду
 c_tab = pd.read_csv(p_cgtw, sep='\s+', header=None, names=['id', 'x', 'y', 'z'])   # read to pandas
@@ -169,9 +177,14 @@ cgtw_g = gpd.GeoDataFrame(c_tab, crs="EPSG:2193", geometry=gpd.points_from_xy(c_
 
 # дальше цикл прохода по каждой опоре и уточнение ее центра
 for n in range(len(cgtw_g)):
-    tow_buf = cgtw_g.loc[n, 'geometry'].buffer(buf_radius)   # делаем буфер
-    tow_cut = str_p.intersection(tow_buf)   # вырезаем то что попало в буфер
-    grd_cut = grd_p.intersection(tow_buf)
+
+    if isinbounds(cgtw_g.loc[n, 'x'], cgtw_g.loc[n, 'y'], str_bounds):
+        tow_buf = cgtw_g.loc[n, 'geometry'].buffer(buf_radius)   # делаем буфер
+        tow_cut = str_p.intersection(tow_buf)   # вырезаем то что попало в буфер
+        grd_cut = grd_p.intersection(tow_buf)
+    else:
+        tow_cut = grd_cut = []   # пустой лист если опоры вне области точек
+
     n_id = cgtw_g.loc[n, 'id']   # id initial
     n_x, n_y, n_z = (round(cgtw_g.loc[n, i]/100, 2) for i in ('x', 'y', 'z'))   # xyz initial
 
