@@ -1,7 +1,7 @@
 # centroids of structures
 # using lidar data of powerline structures to find their axes
 
-# TODO - вынести функции - посмотреть что еще
+# TODO - вынести поиск центров в функции
 # TODO - добавить начальное разбиение бина на части (по опорам)
 # TODO - добавить разворот
 # TODO - попробовать обрезку ног по траверсе ? (убирать оттяжки для столбов)
