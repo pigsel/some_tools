@@ -1,7 +1,6 @@
 # centroids of structures
 # using lidar data of powerline structures to find their axes
 
-# TODO - вынести поиск центров в функции
 # TODO - добавить начальное разбиение бина на части (по опорам)
 # TODO - добавить разворот
 # TODO - попробовать обрезку ног по траверсе ? (убирать оттяжки для столбов)
@@ -15,17 +14,18 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 from pathlib import Path
-from shapely.geometry import Point, MultiPoint, Polygon
+from shapely.geometry import Point, MultiPoint, LineString
+from shapely.ops import split
 import csv
 
 # пути
 p = Path(r'D:\python\some_tools\centrostruct\524_wir_16_notime_nocolor.bin')
 p_cgtw = Path(r'D:\python\some_tools\centrostruct\tower331.pts')   # path to ctow
-fin_cgt = Path(r'D:\python\some_tools\centrostruct\cgtow_corr.txt')
-fin_top = Path(r'D:\python\some_tools\centrostruct\tops_corr.txt')
-fin_cgt_2 = Path(r'D:\python\some_tools\centrostruct\cgtow_corr_m2.txt')
-fin_top_2 = Path(r'D:\python\some_tools\centrostruct\tops_corr_m2.txt')
-repr_path = Path(r'D:\python\some_tools\centrostruct\cst_report.txt')
+fin_cgt = Path(r'D:\python\some_tools\centrostruct\cgtow_corr.txt')    # final file
+fin_top = Path(r'D:\python\some_tools\centrostruct\tops_corr.txt')    # final file
+fin_cgt_2 = Path(r'D:\python\some_tools\centrostruct\cgtow_corr_m2.txt')    # final file
+fin_top_2 = Path(r'D:\python\some_tools\centrostruct\tops_corr_m2.txt')    # final file
+repr_path = Path(r'D:\python\some_tools\centrostruct\cst_report.txt')    # final report
 
 # переменные
 grd_class = 2   # номер класса с точками земли
@@ -102,6 +102,33 @@ def bin_reader(p):
         points = ['ищи ошибку']
 
     return out_header, points
+
+
+def struct_boxes(list_of_str_coords, buf_kor):
+    mid_points = []
+    str_boxes = []
+
+    line = LineString(list_of_str_coords)
+    kor_spam = line.buffer(buf_kor)
+
+    for st in range(len(line.coords) - 1):
+        mp = LineString([line.coords[st], line.coords[st + 1]]).interpolate(0.5, normalized=True)  # mid point
+        mid_points.append(mp)
+        spam = LineString([line.coords[st], mp])  # line from str to mid
+        left = spam.parallel_offset((buf_kor+3), 'left')  # left parallel line
+        right = spam.parallel_offset((buf_kor+3), 'right')  # right parallel line
+        xline = LineString([left.boundary[1], right.boundary[0]])  # x-line - connect ends of parallels
+
+        cut = split(kor_spam, xline)
+        if Point(line.coords[st]).within(cut[0]):
+            str_boxes.append(cut[0])
+            kor_spam = cut[1]
+        else:
+            str_boxes.append(cut[1])
+            kor_spam = cut[0]
+    str_boxes.append(kor_spam)
+
+    return str_boxes
 
 
 def file_write(path, points_arr):
