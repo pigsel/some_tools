@@ -44,6 +44,7 @@ rprt = []   # репорт
 
 def bin_reader(p):
     # функция чтения бинфайлов terrascan - 8 или 16 bit
+    report('загружаем бин файл', rprt)
     bin_data = p.read_bytes()
 
     # HEADER
@@ -127,7 +128,6 @@ def struct_boxes(list_of_str_coords, buf_kor):
             str_boxes.append(cut[1])
             kor_spam = cut[0]
     str_boxes.append(kor_spam)
-
     return str_boxes
 
 
@@ -153,6 +153,41 @@ def z_level_shp(x, y, g_array, radius):
     return np.mean(grd_cut2, axis=0)[2]  # новый уровень земли
 
 
+def centerline(cgt_p):
+    # загружаем предварительные координаты опор в панду
+    c_tab = pd.read_csv(cgt_p, sep='\s+', header=None, names=['id', 'x', 'y', 'z'])   # read to pandas
+    report(f'загружено исходных координат опор: {len(c_tab)}', rprt)
+
+    # теперь умножаем координаты опор на 100
+    # т.к. в бинах точки умножены на 100, умножим и тут для простоты
+    # чтобы не делить все массивы - так быстрее
+    for i in ['x', 'y', 'z']:
+        c_tab[i] = c_tab[i]*100
+
+    # ну и в геопанду это всё
+    cgtw_g = gpd.GeoDataFrame(c_tab, crs="EPSG:2193", geometry=gpd.points_from_xy(c_tab['x'], c_tab['y'], c_tab['z']))
+    return cgtw_g
+
+
+def points_cut(ini_points, ini_head, grd_cls, str_cls):
+    # collect only grd and structure xyz
+    grd_p = []
+    str_p = []
+
+    for i in range(len(ini_points)):
+        po = list(ini_points[i])   # each point in i_points (all values)
+        if po[ini_head.index('class')] == grd_cls:
+            grd_p.append(list(po[ini_head.index(z)] for z in ['x', 'y', 'z']))   # add grd points
+        elif po[ini_head.index('class')] == str_cls:
+            str_p.append(list(po[ini_head.index(z)] for z in ['x', 'y', 'z']))   # add structure points
+
+    report(f'загружено точек опор: {len(grd_p)}, земли: {len(str_p)}', rprt)
+
+    str_p = MultiPoint(str_p)   # делаем массивы shapely (multipoints - z points)
+    grd_p = MultiPoint(grd_p)
+    return str_p, grd_p
+
+
 def isinbounds(x, y, bounds):
     if bounds[2] >= x >= bounds[0] and bounds[3] >= y >= bounds[1]:
         return True
@@ -165,42 +200,20 @@ def report(text, rep):
     rep.append(text)
 
 
-report('сначала загружаем бин файл', rprt)
+################################################################
+#          начало расчетной части
 
 p_header, i_points = bin_reader(p)   # вызываем функцию чтения файла и получаем массив
 
-# collect only grd and structure xyz
-grd_p = []
-str_p = []
+# вырезаем массивы точек опор и земли
+str_p, grd_p = points_cut(i_points, p_header, grd_class, structure_points_class)
 
-for i in range(len(i_points)):
-    po = list(i_points[i])   # each point in i_points (all values)
-    if po[p_header.index('class')] == grd_class:
-        grd_p.append(list(po[p_header.index(z)] for z in ['x', 'y', 'z']))   # add grd points
-    elif po[p_header.index('class')] == structure_points_class:
-        str_p.append(list(po[p_header.index(z)] for z in ['x', 'y', 'z']))   # add structure points
+del i_points  # удаляем т.к. не нужно больше
 
-report(f'загружено точек опор: {len(grd_p)}, земли: {len(str_p)}', rprt)
+cgtw_g = centerline(p_cgtw)   # загружаем координаты опор
 
-del i_points    # удаляем т.к. не нужно больше
-str_p = MultiPoint(str_p)   # делаем массивы shapely (multipoints - z points)
-grd_p = MultiPoint(grd_p)
-
-# x-y bounding box is a (minx, miny, maxx, maxy) tuple
-str_bounds = str_p.bounds
-
-# предварительные координаты опор в панду
-c_tab = pd.read_csv(p_cgtw, sep='\s+', header=None, names=['id', 'x', 'y', 'z'])   # read to pandas
-report(f'загружено исходных координат опор: {len(c_tab)}', rprt)
-
-# теперь умножаем координаты опор на 100
-# т.к. в бинах точки умножены на 100, умножим и тут для простоты
-# чтобы не делить все массивы - так быстрее
-for i in ['x', 'y', 'z']:
-    c_tab[i] = c_tab[i]*100
-
-# ну и в геопанду это всё
-cgtw_g = gpd.GeoDataFrame(c_tab, crs="EPSG:2193", geometry=gpd.points_from_xy(c_tab['x'], c_tab['y'], c_tab['z']))
+# x-y bounding box is a (minx, miny, maxx, maxy) tuple / shapely
+str_bounds = str_p.bounds   # границы загружаемых точек
 
 # дальше цикл прохода по каждой опоре и уточнение ее центра
 for n in range(len(cgtw_g)):
@@ -276,8 +289,6 @@ for n in range(len(cgtw_g)):
         top_2 = (n_id, round(up_fig_2.x / 100, 2), round(up_fig_2.y / 100, 2), round(tow_top / 100, 2))
 
         report(f'опора: {n_id} - координаты уточнены', rprt)
-
-        # metod 2
 
     else:
         # если ничего не понятно
