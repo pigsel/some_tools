@@ -201,20 +201,21 @@ def z_level_shp(x, y, g_array, radius):
 def centerline(cgt_p):
     c_lines = []  # list of structures
     with open(cgt_p, newline='') as f:
-        reader = csv.reader(f, delimiter=' ')
+        reader = csv.reader(f, delimiter=' ', skipinitialspace=True)
         num_of_clines = 1  # number of c-line
         str_index = 1  # index of structure
         for row in reader:
             if len(row) == 4:
                 # ctow file should contain id, x, y, z in each row
                 # to c-lines list we add to each row index of stucture and number of c-line
-                c_lines.append((str_index, num_of_clines, row[0], row[1], row[2], row[3]))
+                c_lines.append((str_index, num_of_clines, row[0], float(row[1]), float(row[2]), float(row[3])))
                 str_index += 1  # index for next structure
             elif len(row) == 0:
                 num_of_clines += 1  # blank row means next c-line follow
             else:
                 print('ctow file error')
     report(f'в объекте {num_of_clines} центрлайн, загружено опор: {len(c_lines)}', rprt)
+    print(c_lines)
 
     # загружаем в панду (чтобы была возможность поработать со столбцами)
     cgtw_g = pd.DataFrame(c_lines, columns=['index', 'c_line', 'id', 'x', 'y', 'z']).set_index('index')
@@ -266,7 +267,7 @@ def find_center(cgtw_g, str_bounds, str_p, grd_p, buf_radius, buf_radius_2, poly
     tower_tops_2 = []  # центры верхушек опор середина (метод 2)
 
     for n in range(len(cgtw_g)):
-
+#TODO - разобраться с ошибкой - начинает с 0
         if isinbounds(cgtw_g.loc[n, 'x'], cgtw_g.loc[n, 'y'], str_bounds):
             tow_buf = cgtw_g.loc[n, 'geometry'].buffer(buf_radius)  # делаем буфер
             tow_cut = str_p.intersection(tow_buf)  # вырезаем то что попало в буфер
