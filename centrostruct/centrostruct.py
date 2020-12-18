@@ -1,10 +1,10 @@
 # centroids of structures
 # using lidar data of powerline structures to find their axes
 
-# TODO - добавить начальное разбиение бина на части (по опорам)
+# TODO - сделать функции: 1 - записать точки в файлы по нарезанному коридору, 2 - прочитать точки из этого файла
 # TODO - добавить разворот
 # TODO - попробовать обрезку ног по траверсе ? (убирать оттяжки для столбов)
-#         возможно задавать вольтаж линии при старте
+#         возможно задавать вольтаж линии при старте?
 # TODO - вывод в DXF
 # TODO - интерфейс
 
@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 from pathlib import Path
-from shapely.geometry import Point, MultiPoint, LineString
+from shapely.geometry import Point, MultiPoint, LineString, MultiLineString
 from shapely.ops import split
 import csv
 
@@ -35,10 +35,6 @@ buf_radius_2 = 200   # радиус отбора точек земли для ф
 polybuff = 200   # буфер вокруг полигона при поиске центроида
 bot_str = 30    # процент от высоты опоры снизу для определения центра
 up_str = 10    # процент от высоты опоры сверху для определения центра
-cgtow_corr = []   # обновленные координаты опор середина
-tower_tops = []   # центры верхушек опор середина
-cgtow_corr_2 = []   # обновленные координаты опор середина (метод 2)
-tower_tops_2 = []   # центры верхушек опор середина (метод 2)
 rprt = []   # репорт
 
 
@@ -105,29 +101,78 @@ def bin_reader(p):
     return out_header, points
 
 
-def struct_boxes(list_of_str_coords, buf_kor):
-    mid_points = []
-    str_boxes = []
-
-    line = LineString(list_of_str_coords)
-    kor_spam = line.buffer(buf_kor)
-
-    for st in range(len(line.coords) - 1):
-        mp = LineString([line.coords[st], line.coords[st + 1]]).interpolate(0.5, normalized=True)  # mid point
-        mid_points.append(mp)
-        spam = LineString([line.coords[st], mp])  # line from str to mid
-        left = spam.parallel_offset((buf_kor+3), 'left')  # left parallel line
-        right = spam.parallel_offset((buf_kor+3), 'right')  # right parallel line
-        xline = LineString([left.boundary[1], right.boundary[0]])  # x-line - connect ends of parallels
-
-        cut = split(kor_spam, xline)
-        if Point(line.coords[st]).within(cut[0]):
-            str_boxes.append(cut[0])
-            kor_spam = cut[1]
+def struct_boxes(cgtw_g, buf_kor):
+    # для коридоров достаточно построить 2д линии
+    coo_2d = []
+    line_n = 1
+    spam = []
+    for i in range(1, len(cgtw_g) + 1):
+        if cgtw_g.loc[i, 'c_line'] == line_n:
+            spam.append((cgtw_g.loc[i].x, cgtw_g.loc[i].y))
+            if i == len(cgtw_g): coo_2d.append(tuple(spam))
         else:
-            str_boxes.append(cut[1])
-            kor_spam = cut[0]
-    str_boxes.append(kor_spam)
+            coo_2d.append(tuple(spam))
+            spam = []
+            line_n = cgtw_g.loc[i, 'c_line']
+            spam.append((cgtw_g.loc[i].x, cgtw_g.loc[i].y))
+
+    m_lines_2d = MultiLineString(coo_2d)  # переводим в мультилинии
+
+    # строим коридоры вокруг центрлайнов и нарезаем их
+    mid_points = []   # цетры пролетов
+    str_boxes = []   # нарезанные боксы
+    for line in m_lines_2d.geoms:
+        kor_spam = line.buffer(buf_kor)
+        for i in range(len(line.coords) - 1):
+            mp = LineString([line.coords[i], line.coords[i + 1]]).interpolate(0.5, normalized=True)  # mid point
+            mid_points.append(mp)
+
+            spam = LineString([line.coords[i], mp])  # line from str to mid
+            left = spam.parallel_offset((buf_kor+1), 'left')  # left parallel line
+            right = spam.parallel_offset((buf_kor+1), 'right')  # right parallel line
+            xline = LineString([left.boundary[1], right.boundary[0]])  # x-line on mid point
+
+            cut = split(kor_spam, xline)   # режем коридор по x-line на две части
+            if Point(line.coords[i]).within(cut[0]):    # проверяем какой из коридоров нам нужен
+                str_boxes.append(cut[0])    # наш (отрезок) коридор добавляем в список
+                kor_spam = cut[1]    # переприсваиваем оставшуюся большую часть
+            else:
+                str_boxes.append(cut[1])
+                kor_spam = cut[0]
+
+        str_boxes.append(kor_spam)   # последний кусок добавляем отдельно
+
+    uniq_str = list(set(cgtw_g.id))   # предварительно уникальные номера опор (без повторений)
+    junktion_points = []  # повторяющиеся (узловые) опоры
+
+    for str in uniq_str:
+        if list(cgtw_g.id).count(str) > 1:   # если опор с одним id номером больше одной
+            junktion_points.append(str)
+
+    # делаем проверку действительно ли эти опоры имеют одинаковые координаты и если нет, удаляем из списка
+    for jp in junktion_points:
+        jp_p = cgtw_g[cgtw_g['id'] == jp]
+        spam = jp_p.iloc[0].geometry
+        for a in range(len(jp_p)):
+            if jp_p.iloc[a].geometry != spam:
+                junktion_points.remove(jp)
+                uniq_str.append(jp)
+                print('перенес одного.. ')
+    print('теперь всё в порядке')
+
+    # replace boxes / объединяем накладывающиеся боксы в один
+    for pnt in junktion_points:
+        point = cgtw_g[cgtw_g['id'] == pnt].iloc[0].geometry
+        bb = 0
+        for box in str_boxes:   # для каждого бокса проверяем попадает ли туда узловая опора
+            if point.within(box):
+                if bb == 0:
+                    bb = box
+                else:
+                    bb = bb.union(box)   # объединяем
+                str_boxes.remove(box)   # старый удаляем
+        if bb != 0:
+            str_boxes.append(bb)   # затем добавляем новый
     return str_boxes
 
 
@@ -154,18 +199,36 @@ def z_level_shp(x, y, g_array, radius):
 
 
 def centerline(cgt_p):
-    # загружаем предварительные координаты опор в панду
-    c_tab = pd.read_csv(cgt_p, sep='\s+', header=None, names=['id', 'x', 'y', 'z'])   # read to pandas
-    report(f'загружено исходных координат опор: {len(c_tab)}', rprt)
+    c_lines = []  # list of structures
+    with open(cgt_p, newline='') as f:
+        reader = csv.reader(f, delimiter=' ')
+        num_of_clines = 1  # number of c-line
+        str_index = 1  # index of structure
+        for row in reader:
+            if len(row) == 4:
+                # ctow file should contain id, x, y, z in each row
+                # to c-lines list we add to each row index of stucture and number of c-line
+                c_lines.append((str_index, num_of_clines, row[0], row[1], row[2], row[3]))
+                str_index += 1  # index for next structure
+            elif len(row) == 0:
+                num_of_clines += 1  # blank row means next c-line follow
+            else:
+                print('ctow file error')
+    report(f'в объекте {num_of_clines} центрлайн, загружено опор: {len(c_lines)}', rprt)
+
+    # загружаем в панду (чтобы была возможность поработать со столбцами)
+    cgtw_g = pd.DataFrame(c_lines, columns=['index', 'c_line', 'id', 'x', 'y', 'z']).set_index('index')
+
 
     # теперь умножаем координаты опор на 100
     # т.к. в бинах точки умножены на 100, умножим и тут для простоты
     # чтобы не делить все массивы - так быстрее
     for i in ['x', 'y', 'z']:
-        c_tab[i] = c_tab[i]*100
+        cgtw_g[i] = cgtw_g[i]*100
 
     # ну и в геопанду это всё
-    cgtw_g = gpd.GeoDataFrame(c_tab, crs="EPSG:2193", geometry=gpd.points_from_xy(c_tab['x'], c_tab['y'], c_tab['z']))
+    cgtw_g = gpd.GeoDataFrame(cgtw_g, crs="EPSG:2193", geometry=gpd.points_from_xy(cgtw_g['x'], cgtw_g['y'], cgtw_g['z']))
+    report('геопривязка опор завершена', rprt)
     return cgtw_g
 
 
@@ -195,13 +258,109 @@ def isinbounds(x, y, bounds):
         return False
 
 
+def find_center(cgtw_g, str_bounds, str_p, grd_p, buf_radius, buf_radius_2, polybuff):
+    # дальше цикл прохода по каждой опоре и уточнение ее центра
+    cgtow_corr = []  # обновленные координаты опор середина
+    tower_tops = []  # центры верхушек опор середина
+    cgtow_corr_2 = []  # обновленные координаты опор середина (метод 2)
+    tower_tops_2 = []  # центры верхушек опор середина (метод 2)
+
+    for n in range(len(cgtw_g)):
+
+        if isinbounds(cgtw_g.loc[n, 'x'], cgtw_g.loc[n, 'y'], str_bounds):
+            tow_buf = cgtw_g.loc[n, 'geometry'].buffer(buf_radius)  # делаем буфер
+            tow_cut = str_p.intersection(tow_buf)  # вырезаем то что попало в буфер
+            grd_cut = grd_p.intersection(tow_buf)
+        else:
+            tow_cut = grd_cut = []  # пустой лист если опоры вне области точек
+
+        n_id = cgtw_g.loc[n, 'id']  # id initial
+        n_x, n_y, n_z = (round(cgtw_g.loc[n, i] / 100, 2) for i in ('x', 'y', 'z'))  # xyz initial
+
+        # добавить проверку есть ли чтото в массивах
+        if len(tow_cut) == 0 and len(grd_cut) == 0:
+            # если не найдено точек опоры и земли оставляем исходные
+            cgt = (n_id, n_x, n_y, n_z)
+            top = cgt_2 = top_2 = cgt
+            report(f'опора: {n_id} - оставлены исходные координаты (ТЛО не найдены)', rprt)
+
+        elif len(tow_cut) == 0 and len(grd_cut) != 0:
+            # если точек от опоры нет, но есть земля - уточняем землю
+            grd_lvl = z_level_shp(n_x, n_y, grd_cut, buf_radius_2)
+            cgt = (n_id, n_x, n_y, round(grd_lvl / 100, 2))
+            top = cgt_2 = top_2 = cgt
+            report(f'опора: {n_id} - уточнена только высота (ТЛО опоры не найдены)', rprt)
+
+        elif len(tow_cut) != 0:
+            # если есть точки опоры
+            if len(grd_cut) != 0:
+                grd_lvl = np.mean(grd_cut, axis=0)[2]  # средняя высота земли для расчета примерной высоты опоры
+            else:
+                grd_lvl = np.min(tow_cut, axis=0)[
+                    2]  # если нет земли нижняя точка определяется по нижнему отражению опоры
+                report(f'опора: {n_id} - нет ТЛО земли, высота определена по нижнему отражению опоры', rprt)
+
+            tow_top = np.max(tow_cut, axis=0)[2]  # верхнее отражение от опоры (наивысшая точка)
+
+            # начинаем с верхушки опоры
+            up_lvl = (tow_top - grd_lvl) * ((100 - up_str) / 100) + grd_lvl
+            tow_up = []
+            for i in range(len(tow_cut)):
+                if tow_cut[i].z > up_lvl:
+                    tow_up.append(tow_cut[i])  # upper points
+            tow_up = MultiPoint(tow_up)
+            # находим центр
+            up_fig = tow_up.convex_hull.buffer(polybuff).centroid  # центр буфера вокруг описывающего полигона
+            # method 2
+            up_fig_2 = tow_up.minimum_rotated_rectangle.centroid  # центр минимального описывающего прямоугольника
+
+            # работа с основанием опоры - в пределах верхушки + up_buf
+            bot_lvl = (tow_top - grd_lvl) * (bot_str / 100) + grd_lvl  # высота части основания
+            tow_bot = []
+            for i in range(len(tow_cut)):
+                if tow_cut[i].z < bot_lvl:
+                    tow_bot.append(tow_cut[i])  # upper points
+            tow_bot = MultiPoint(tow_bot)
+            # находим центр
+            bot_fig = tow_bot.convex_hull.buffer(polybuff).centroid  # центр буфера вокруг описывающего полигона
+            # method 2
+            bot_fig_2 = tow_bot.minimum_rotated_rectangle.centroid  # центр минимального описывающего прямоугольника
+
+            # теперь уточним высоту на земле, для этого возьмем радиус поуже
+            if len(grd_cut) != 0:
+                grd_lvl = z_level_shp(bot_fig.x, bot_fig.y, grd_cut, buf_radius_2)
+
+            # итоговые координаты
+            cgt = (n_id, round(bot_fig.x / 100, 2), round(bot_fig.y / 100, 2), round(grd_lvl / 100, 2))
+            top = (n_id, round(up_fig.x / 100, 2), round(up_fig.y / 100, 2), round(tow_top / 100, 2))
+            # второй метод
+            cgt_2 = (n_id, round(bot_fig_2.x / 100, 2), round(bot_fig_2.y / 100, 2), round(grd_lvl / 100, 2))
+            top_2 = (n_id, round(up_fig_2.x / 100, 2), round(up_fig_2.y / 100, 2), round(tow_top / 100, 2))
+
+            report(f'опора: {n_id} - координаты уточнены', rprt)
+
+        else:
+            # если ничего не понятно
+            cgt = ('error', 0, 0, 0)
+            top = top_2 = cgt_2 = cgt
+            report(f'опора: {n_id} - неизвестная ошибка', rprt)
+
+        # теперь добавляем полученное в списки
+        cgtow_corr.append(cgt)
+        tower_tops.append(top)
+        cgtow_corr_2.append(cgt_2)
+        tower_tops_2.append(top_2)
+
+    return cgtow_corr, cgtow_corr_2, tower_tops, tower_tops_2
+
+
 def report(text, rep):
     print(text)
     rep.append(text)
 
 
 ################################################################
-#          начало расчетной части
+#          начало расчетной части  -  собираем функции
 
 p_header, i_points = bin_reader(p)   # вызываем функцию чтения файла и получаем массив
 
@@ -215,94 +374,10 @@ cgtw_g = centerline(p_cgtw)   # загружаем координаты опор
 # x-y bounding box is a (minx, miny, maxx, maxy) tuple / shapely
 str_bounds = str_p.bounds   # границы загружаемых точек
 
-# дальше цикл прохода по каждой опоре и уточнение ее центра
-for n in range(len(cgtw_g)):
+# поиск центров
+cgtow_corr, cgtow_corr_2, tower_tops, tower_tops_2 = find_center(cgtw_g, str_bounds, str_p, grd_p, buf_radius, buf_radius_2, polybuff)
 
-    if isinbounds(cgtw_g.loc[n, 'x'], cgtw_g.loc[n, 'y'], str_bounds):
-        tow_buf = cgtw_g.loc[n, 'geometry'].buffer(buf_radius)   # делаем буфер
-        tow_cut = str_p.intersection(tow_buf)   # вырезаем то что попало в буфер
-        grd_cut = grd_p.intersection(tow_buf)
-    else:
-        tow_cut = grd_cut = []   # пустой лист если опоры вне области точек
-
-    n_id = cgtw_g.loc[n, 'id']   # id initial
-    n_x, n_y, n_z = (round(cgtw_g.loc[n, i]/100, 2) for i in ('x', 'y', 'z'))   # xyz initial
-
-    # добавить проверку есть ли чтото в массивах
-    if len(tow_cut) == 0 and len(grd_cut) == 0:
-        # если не найдено точек опоры и земли оставляем исходные
-        cgt = (n_id, n_x, n_y, n_z)
-        top = cgt_2 = top_2 = cgt
-        report(f'опора: {n_id} - оставлены исходные координаты (ТЛО не найдены)', rprt)
-
-    elif len(tow_cut) == 0 and len(grd_cut) != 0:
-        # если точек от опоры нет, но есть земля - уточняем землю
-        grd_lvl = z_level_shp(n_x, n_y, grd_cut, buf_radius_2)
-        cgt = (n_id, n_x, n_y, round(grd_lvl / 100, 2))
-        top = cgt_2 = top_2 = cgt
-        report(f'опора: {n_id} - уточнена только высота (ТЛО опоры не найдены)', rprt)
-
-    elif len(tow_cut) != 0:
-        # если есть точки опоры
-        if len(grd_cut) != 0:
-            grd_lvl = np.mean(grd_cut, axis=0)[2]   # средняя высота земли для расчета примерной высоты опоры
-        else:
-            grd_lvl = np.min(tow_cut, axis=0)[2]   # если нет земли нижняя точка определяется по нижнему отражению опоры
-            report(f'опора: {n_id} - нет ТЛО земли, высота определена по нижнему отражению опоры', rprt)
-
-        tow_top = np.max(tow_cut, axis=0)[2]   # верхнее отражение от опоры (наивысшая точка)
-
-
-        # начинаем с верхушки опоры
-        up_lvl = (tow_top - grd_lvl) * ((100 - up_str) / 100) + grd_lvl
-        tow_up = []
-        for i in range(len(tow_cut)):
-            if tow_cut[i].z > up_lvl:
-                tow_up.append(tow_cut[i])   # upper points
-        tow_up = MultiPoint(tow_up)
-        # находим центр
-        up_fig = tow_up.convex_hull.buffer(polybuff).centroid   # центр буфера вокруг описывающего полигона
-        # method 2
-        up_fig_2 = tow_up.minimum_rotated_rectangle.centroid   # центр минимального описывающего прямоугольника
-
-        # работа с основанием опоры - в пределах верхушки + up_buf
-        bot_lvl = (tow_top - grd_lvl) * (bot_str / 100) + grd_lvl   # высота части основания
-        tow_bot = []
-        for i in range(len(tow_cut)):
-            if tow_cut[i].z < bot_lvl:
-                tow_bot.append(tow_cut[i])   # upper points
-        tow_bot = MultiPoint(tow_bot)
-        # находим центр
-        bot_fig = tow_bot.convex_hull.buffer(polybuff).centroid   # центр буфера вокруг описывающего полигона
-        # method 2
-        bot_fig_2 = tow_bot.minimum_rotated_rectangle.centroid   # центр минимального описывающего прямоугольника
-
-        # теперь уточним высоту на земле, для этого возьмем радиус поуже
-        if len(grd_cut) != 0:
-            grd_lvl = z_level_shp(bot_fig.x, bot_fig.y, grd_cut, buf_radius_2)
-
-        # итоговые координаты
-        cgt = (n_id, round(bot_fig.x / 100, 2), round(bot_fig.y / 100, 2), round(grd_lvl / 100, 2))
-        top = (n_id, round(up_fig.x / 100, 2), round(up_fig.y / 100, 2), round(tow_top / 100, 2))
-        # второй метод
-        cgt_2 = (n_id, round(bot_fig_2.x / 100, 2), round(bot_fig_2.y / 100, 2), round(grd_lvl / 100, 2))
-        top_2 = (n_id, round(up_fig_2.x / 100, 2), round(up_fig_2.y / 100, 2), round(tow_top / 100, 2))
-
-        report(f'опора: {n_id} - координаты уточнены', rprt)
-
-    else:
-        # если ничего не понятно
-        cgt = ('error', 0, 0, 0)
-        top = top_2 = cgt_2 = cgt
-        report(f'опора: {n_id} - неизвестная ошибка', rprt)
-
-    # теперь добавляем полученное в списки
-    cgtow_corr.append(cgt)
-    tower_tops.append(top)
-    cgtow_corr_2.append(cgt_2)
-    tower_tops_2.append(top_2)
-
-
+# записываем в файлы
 file_write(fin_cgt, cgtow_corr)
 file_write(fin_top, tower_tops)
 file_write(fin_cgt_2, cgtow_corr_2)
