@@ -266,8 +266,7 @@ def find_center(cgtw_g, str_bounds, str_p, grd_p, buf_radius, buf_radius_2, poly
     cgtow_corr_2 = []  # обновленные координаты опор середина (метод 2)
     tower_tops_2 = []  # центры верхушек опор середина (метод 2)
 
-    for n in range(len(cgtw_g)):
-#TODO - разобраться с ошибкой - начинает с 0
+    for n in range(1, len(cgtw_g) + 1):
         if isinbounds(cgtw_g.loc[n, 'x'], cgtw_g.loc[n, 'y'], str_bounds):
             tow_buf = cgtw_g.loc[n, 'geometry'].buffer(buf_radius)  # делаем буфер
             tow_cut = str_p.intersection(tow_buf)  # вырезаем то что попало в буфер
