@@ -1,7 +1,10 @@
 # centroids of structures
 # using lidar data of powerline structures to find their axes
 
-# TODO - сделать функции: 1 - записать точки в файлы по нарезанному коридору, 2 - прочитать точки из этого файла
+# TODO - проверить ошибки в новых функциях,
+#  добавить репортов везде
+#  запись промежуточных файлов в темп
+
 # TODO - добавить разворот
 # TODO - попробовать обрезку ног по траверсе ? (убирать оттяжки для столбов)
 #         возможно задавать вольтаж линии при старте?
@@ -26,6 +29,9 @@ fin_top = Path(r'D:\python\some_tools\centrostruct\tops_corr.txt')    # final fi
 fin_cgt_2 = Path(r'D:\python\some_tools\centrostruct\cgtow_corr_m2.txt')    # final file
 fin_top_2 = Path(r'D:\python\some_tools\centrostruct\tops_corr_m2.txt')    # final file
 repr_path = Path(r'D:\python\some_tools\centrostruct\cst_report.txt')    # final report
+temp_path = p_cgtw.parent / 'temp'
+if not temp_path.exists():
+    temp_path.mkdir()
 
 # переменные
 grd_class = 2   # номер класса с точками земли
@@ -259,18 +265,26 @@ def isinbounds(x, y, bounds):
         return False
 
 
-def cutbyboxes(cgtw_g, str_bounds, str_p, grd_p):
+def cutbyboxes(cgtw_g, str_bounds, str_boxes, str_p, grd_p):
     # добавляем в таблицу опор колонку havepoints где будем отмечать есть точки или нет
     cgtw_g['havepoints'] = 0
+    grd_to_box = []
+    str_to_box = []
     # дальше проверяем есть ли точки на эту опору и проставляем метки
     for n in range(len(cgtw_g)):
-        id = cgtw_g.iloc[n].name   # find index and work with it
-        if isinbounds(cgtw_g.loc[id, 'x'], cgtw_g.loc[id, 'y'], str_bounds):
-            cgtw_g.loc[id, 'havepoints'] = 1
+        idx = cgtw_g.iloc[n].name   # find index and work with it
+        if isinbounds(cgtw_g.loc[idx, 'x'], cgtw_g.loc[idx, 'y'], str_bounds):
+            cgtw_g.loc[idx, 'havepoints'] = 1
+            for box in str_boxes:
+                if cgtw_g.loc[idx].geometry.within(box):
+                    str_to_box = str_p.intersection(box)  # вырезаем
+                    grd_to_box = grd_p.intersection(box)
+                    str_f_path = temp_path / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_str.xyz")
+                    grd_f_path = temp_path / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_grd.xyz")
+                    file_write(str_to_box, str_f_path)
+                    file_write(grd_to_box, grd_f_path)
+    return cgtw_g
 
-    # проход по не нулевым опорам и ищем бокс под неё
-    # вырезаем по боксу точки земли и опоры
-    # сохраняем в файлы с заданным именем и записываем имена в файл опор
 
 
 def find_center(cgtw_g, str_bounds, str_p, grd_p, buf_radius, buf_radius_2, polybuff):
@@ -280,6 +294,7 @@ def find_center(cgtw_g, str_bounds, str_p, grd_p, buf_radius, buf_radius_2, poly
     cgtow_corr_2 = []  # обновленные координаты опор середина (метод 2)
     tower_tops_2 = []  # центры верхушек опор середина (метод 2)
 
+    #TODO переделать под использование боксов
     for n in range(1, len(cgtw_g) + 1):
         if isinbounds(cgtw_g.loc[n, 'x'], cgtw_g.loc[n, 'y'], str_bounds):
             tow_buf = cgtw_g.loc[n, 'geometry'].buffer(buf_radius)  # делаем буфер
@@ -387,6 +402,12 @@ cgtw_g = centerline(p_cgtw)   # загружаем координаты опор
 
 # x-y bounding box is a (minx, miny, maxx, maxy) tuple / shapely
 str_bounds = str_p.bounds   # границы загружаемых точек
+
+# ищем коридоры
+str_boxes = struct_boxes(cgtw_g, buf_radius)
+
+# разбиваем коридоры
+cgtw_g = cutbyboxes(cgtw_g, str_bounds, str_boxes, str_p, grd_p)
 
 # поиск центров
 cgtow_corr, cgtow_corr_2, tower_tops, tower_tops_2 = find_center(cgtw_g, str_bounds, str_p, grd_p, buf_radius, buf_radius_2, polybuff)
