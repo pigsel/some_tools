@@ -215,7 +215,7 @@ def centerline(cgt_p):
             else:
                 print('ctow file error')
     report(f'в объекте {num_of_clines} центрлайн, загружено опор: {len(c_lines)}', rprt)
-    print(c_lines)
+    #print(c_lines)
 
     # загружаем в панду (чтобы была возможность поработать со столбцами)
     cgtw_g = pd.DataFrame(c_lines, columns=['index', 'c_line', 'id', 'x', 'y', 'z']).set_index('index')
@@ -239,7 +239,7 @@ def points_cut(ini_points, ini_head, grd_cls, str_cls):
     str_p = []
 
     for i in range(len(ini_points)):
-        po = list(ini_points[i])   # each point in i_points (all values)
+        po = list(ini_points[i])   # each row in i_points (all values)
         if po[ini_head.index('class')] == grd_cls:
             grd_p.append(list(po[ini_head.index(z)] for z in ['x', 'y', 'z']))   # add grd points
         elif po[ini_head.index('class')] == str_cls:
@@ -257,6 +257,20 @@ def isinbounds(x, y, bounds):
         return True
     else:
         return False
+
+
+def cutbyboxes(cgtw_g, str_bounds, str_p, grd_p):
+    # добавляем в таблицу опор колонку havepoints где будем отмечать есть точки или нет
+    cgtw_g['havepoints'] = 0
+    # дальше проверяем есть ли точки на эту опору и проставляем метки
+    for n in range(len(cgtw_g)):
+        id = cgtw_g.iloc[n].name   # find index and work with it
+        if isinbounds(cgtw_g.loc[id, 'x'], cgtw_g.loc[id, 'y'], str_bounds):
+            cgtw_g.loc[id, 'havepoints'] = 1
+
+    # проход по не нулевым опорам и ищем бокс под неё
+    # вырезаем по боксу точки земли и опоры
+    # сохраняем в файлы с заданным именем и записываем имена в файл опор
 
 
 def find_center(cgtw_g, str_bounds, str_p, grd_p, buf_radius, buf_radius_2, polybuff):
