@@ -123,6 +123,7 @@ def struct_boxes(cgtw_g, buf_kor):
             spam.append((cgtw_g.loc[i].x, cgtw_g.loc[i].y))
 
     m_lines_2d = MultiLineString(coo_2d)  # переводим в мультилинии
+    report('построены полилинии для коридоров', rprt)
 
     # строим коридоры вокруг центрлайнов и нарезаем их
     mid_points = []   # цетры пролетов
@@ -134,11 +135,12 @@ def struct_boxes(cgtw_g, buf_kor):
             mid_points.append(mp)
 
             spam = LineString([line.coords[i], mp])  # line from str to mid
-            left = spam.parallel_offset((buf_kor+1), 'left')  # left parallel line
-            right = spam.parallel_offset((buf_kor+1), 'right')  # right parallel line
+            left = spam.parallel_offset((buf_kor+3), 'left')  # left parallel line
+            right = spam.parallel_offset((buf_kor+3), 'right')  # right parallel line
             xline = LineString([left.boundary[1], right.boundary[0]])  # x-line on mid point
 
             cut = split(kor_spam, xline)   # режем коридор по x-line на две части
+            #print(i, len(cut))
             if Point(line.coords[i]).within(cut[0]):    # проверяем какой из коридоров нам нужен
                 str_boxes.append(cut[0])    # наш (отрезок) коридор добавляем в список
                 kor_spam = cut[1]    # переприсваиваем оставшуюся большую часть
@@ -148,6 +150,7 @@ def struct_boxes(cgtw_g, buf_kor):
 
         str_boxes.append(kor_spam)   # последний кусок добавляем отдельно
 
+    report('построены коридоры, проводим слияние в узловых точках', rprt)
     uniq_str = list(set(cgtw_g.id))   # предварительно уникальные номера опор (без повторений)
     junktion_points = []  # повторяющиеся (узловые) опоры
 
@@ -163,8 +166,8 @@ def struct_boxes(cgtw_g, buf_kor):
             if jp_p.iloc[a].geometry != spam:
                 junktion_points.remove(jp)
                 uniq_str.append(jp)
-                print('перенес одного.. ')
-    print('теперь всё в порядке')
+                #print('перенес одного.. ')
+    report('проверка уникальности узловых опор', rprt)
 
     # replace boxes / объединяем накладывающиеся боксы в один
     for pnt in junktion_points:
@@ -179,6 +182,8 @@ def struct_boxes(cgtw_g, buf_kor):
                 str_boxes.remove(box)   # старый удаляем
         if bb != 0:
             str_boxes.append(bb)   # затем добавляем новый
+
+    report('коридоры объединены', rprt)
     return str_boxes
 
 
@@ -186,8 +191,13 @@ def file_write(path, points_arr):
     # сохранить в текстовые файлы с разделителем пробелом
     with open(path, 'w', newline='') as the_file:
         points_writer = csv.writer(the_file, delimiter=' ')
-        for tup in points_arr:
-            points_writer.writerow(tup)
+        if type(points_arr) == MultiPoint:
+            for po in points_arr:
+                p_coo = (po.x, po.y, po.z)
+                points_writer.writerow(p_coo)
+        else:
+            for tup in points_arr:
+                points_writer.writerow(tup)
 
 
 def z_level_gpd(x, y, g_array, radius):
@@ -281,8 +291,9 @@ def cutbyboxes(cgtw_g, str_bounds, str_boxes, str_p, grd_p):
                     grd_to_box = grd_p.intersection(box)
                     str_f_path = temp_path / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_str.xyz")
                     grd_f_path = temp_path / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_grd.xyz")
-                    file_write(str_to_box, str_f_path)
-                    file_write(grd_to_box, grd_f_path)
+                    file_write(str_f_path, str_to_box)
+                    file_write(grd_f_path, grd_to_box)
+                    report(f'записаны блоки для {idx}', rprt)
     return cgtw_g
 
 
