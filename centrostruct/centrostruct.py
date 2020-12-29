@@ -193,7 +193,7 @@ def file_write(path, points_arr):
         points_writer = csv.writer(the_file, delimiter=' ')
         if type(points_arr) == MultiPoint:
             for po in points_arr:
-                p_coo = (po.x, po.y, po.z)
+                p_coo = (round(po.x / 100, 2), round(po.y / 100, 2), round(po.z / 100, 2))
                 points_writer.writerow(p_coo)
         else:
             for tup in points_arr:
