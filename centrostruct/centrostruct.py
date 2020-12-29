@@ -305,8 +305,10 @@ def find_center(cgtw_g, str_bounds, str_p, grd_p, buf_radius, buf_radius_2, poly
     cgtow_corr_2 = []  # обновленные координаты опор середина (метод 2)
     tower_tops_2 = []  # центры верхушек опор середина (метод 2)
 
+
     #TODO переделать под использование боксов
-    for n in range(1, len(cgtw_g) + 1):
+    for n in range(1, len(cgtw_g) + 1):   #TODO переделать под индекс
+        #TODO переделать - отбор по cgtw  того что внутри боундс
         if isinbounds(cgtw_g.loc[n, 'x'], cgtw_g.loc[n, 'y'], str_bounds):
             tow_buf = cgtw_g.loc[n, 'geometry'].buffer(buf_radius)  # делаем буфер
             tow_cut = str_p.intersection(tow_buf)  # вырезаем то что попало в буфер
@@ -314,10 +316,10 @@ def find_center(cgtw_g, str_bounds, str_p, grd_p, buf_radius, buf_radius_2, poly
         else:
             tow_cut = grd_cut = []  # пустой лист если опоры вне области точек
 
+        # parse cgtw
         n_id = cgtw_g.loc[n, 'id']  # id initial
         n_x, n_y, n_z = (round(cgtw_g.loc[n, i] / 100, 2) for i in ('x', 'y', 'z'))  # xyz initial
 
-        # добавить проверку есть ли чтото в массивах
         if len(tow_cut) == 0 and len(grd_cut) == 0:
             # если не найдено точек опоры и земли оставляем исходные
             cgt = (n_id, n_x, n_y, n_z)
@@ -393,6 +395,7 @@ def find_center(cgtw_g, str_bounds, str_p, grd_p, buf_radius, buf_radius_2, poly
 
     return cgtow_corr, cgtow_corr_2, tower_tops, tower_tops_2
 
+#TODO добавить экспорт cgtw + колонку с информацией были ли ошибки при расчете (а может быть еще количество отражений от опор и земли?)
 
 def report(text, rep):
     print(text)
