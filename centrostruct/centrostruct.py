@@ -200,6 +200,18 @@ def file_write(path, points_arr):
                 points_writer.writerow(tup)
 
 
+def xyz_read(path):
+    # read xyz arrays from files
+    with open(path, newline='') as xyz_file:
+        spamlist = []
+        spamreader = csv.reader(xyz_file, delimiter=' ', quoting=csv.QUOTE_NONNUMERIC, skipinitialspace=True)
+        for row in spamreader:
+            spamlist.append(row)
+        spamlist = MultiPoint(spamlist)
+
+    return spamlist
+
+
 def z_level_gpd(x, y, g_array, radius):
     # for geopandas array
     s = Point(x, y)  # используем уточненную координату
@@ -299,26 +311,28 @@ def cutbyboxes(cgtw_g, str_bounds, str_boxes, str_p, grd_p):
 
 
 def find_center(cgtw_g, str_bounds, str_p, grd_p, buf_radius, buf_radius_2, polybuff):
+    # здесь уже работаем с нормальными координатами без умножения на 100,
+    # поэтому нужно определиться когда делить буферы на 100
     # дальше цикл прохода по каждой опоре и уточнение ее центра
     cgtow_corr = []  # обновленные координаты опор середина
     tower_tops = []  # центры верхушек опор середина
     cgtow_corr_2 = []  # обновленные координаты опор середина (метод 2)
     tower_tops_2 = []  # центры верхушек опор середина (метод 2)
 
-
-    #TODO переделать под использование боксов
-    for n in range(1, len(cgtw_g) + 1):   #TODO переделать под индекс
-        #TODO переделать - отбор по cgtw  того что внутри боундс
-        if isinbounds(cgtw_g.loc[n, 'x'], cgtw_g.loc[n, 'y'], str_bounds):
-            tow_buf = cgtw_g.loc[n, 'geometry'].buffer(buf_radius)  # делаем буфер
-            tow_cut = str_p.intersection(tow_buf)  # вырезаем то что попало в буфер
-            grd_cut = grd_p.intersection(tow_buf)
+    for n in range(len(cgtw_g)):
+        idx = cgtw_g.iloc[n].name  # find index and work with index
+        # parse cgtw
+        n_id = cgtw_g.loc[idx, 'id']  # id initial
+        n_x, n_y, n_z = (round(cgtw_g.loc[idx, i] / 100, 2) for i in ('x', 'y', 'z'))  # xyz initial
+        # cut from boxes
+        if cgtw_g.loc[idx, 'havepoints'] == 1:
+            box_str = xyz_read(temp_path / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_str.xyz"))
+            box_grd = xyz_read(temp_path / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_grd.xyz"))
+            tow_buf = Point(n_x, n_y).buffer(buf_radius)  # делаем буфер
+            tow_cut = box_str.intersection(tow_buf)  # вырезаем то что попало в буфер
+            grd_cut = box_grd.intersection(tow_buf)
         else:
             tow_cut = grd_cut = []  # пустой лист если опоры вне области точек
-
-        # parse cgtw
-        n_id = cgtw_g.loc[n, 'id']  # id initial
-        n_x, n_y, n_z = (round(cgtw_g.loc[n, i] / 100, 2) for i in ('x', 'y', 'z'))  # xyz initial
 
         if len(tow_cut) == 0 and len(grd_cut) == 0:
             # если не найдено точек опоры и земли оставляем исходные
@@ -373,11 +387,11 @@ def find_center(cgtw_g, str_bounds, str_p, grd_p, buf_radius, buf_radius_2, poly
                 grd_lvl = z_level_shp(bot_fig.x, bot_fig.y, grd_cut, buf_radius_2)
 
             # итоговые координаты
-            cgt = (n_id, round(bot_fig.x / 100, 2), round(bot_fig.y / 100, 2), round(grd_lvl / 100, 2))
-            top = (n_id, round(up_fig.x / 100, 2), round(up_fig.y / 100, 2), round(tow_top / 100, 2))
+            cgt = (n_id, round(bot_fig.x, 2), round(bot_fig.y, 2), round(grd_lvl, 2))
+            top = (n_id, round(up_fig.x, 2), round(up_fig.y, 2), round(tow_top, 2))
             # второй метод
-            cgt_2 = (n_id, round(bot_fig_2.x / 100, 2), round(bot_fig_2.y / 100, 2), round(grd_lvl / 100, 2))
-            top_2 = (n_id, round(up_fig_2.x / 100, 2), round(up_fig_2.y / 100, 2), round(tow_top / 100, 2))
+            cgt_2 = (n_id, round(bot_fig_2.x, 2), round(bot_fig_2.y, 2), round(grd_lvl, 2))
+            top_2 = (n_id, round(up_fig_2.x, 2), round(up_fig_2.y, 2), round(tow_top, 2))
 
             report(f'опора: {n_id} - координаты уточнены', rprt)
 
