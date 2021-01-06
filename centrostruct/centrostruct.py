@@ -191,7 +191,7 @@ def file_write(path, points_arr):
         points_writer = csv.writer(the_file, delimiter=' ')
         if type(points_arr) == MultiPoint:
             for po in points_arr:
-                p_coo = (round(po.x / 100, 2), round(po.y / 100, 2), round(po.z / 100, 2))
+                p_coo = (round(po.x / 100, 2), round(po.y / 100, 2), round(po.z / 100, 2))   # для массивов делим на 100
                 points_writer.writerow(p_coo)
         else:
             for tup in points_arr:
@@ -251,7 +251,7 @@ def centerline(cgt_p):
     # т.к. в бинах точки умножены на 100, умножим и тут для простоты
     # чтобы не делить все массивы - так быстрее
     for i in ['x', 'y', 'z']:
-        cgtw_g[i] = cgtw_g[i]*100
+        cgtw_g[i] = cgtw_g[i]*100    #TODO здесь умножение на 100 !! если в дальнейшем захочется от него избавиться
 
     # ну и в геопанду это всё
     cgtw_g = gpd.GeoDataFrame(cgtw_g, crs="EPSG:2193", geometry=gpd.points_from_xy(cgtw_g['x'], cgtw_g['y'], cgtw_g['z']))
@@ -267,9 +267,9 @@ def points_cut(ini_points, ini_head, grd_cls, str_cls):
     for i in range(len(ini_points)):
         po = list(ini_points[i])   # each row in i_points (all values)
         if po[ini_head.index('class')] == grd_cls:
-            grd_p.append(list(po[ini_head.index(z)] for z in ['x', 'y', 'z']))   # add grd points
+            grd_p.append(list(po[ini_head.index(z)] for z in ['x', 'y', 'z']))   # add grd points / поделить на 100 если надо
         elif po[ini_head.index('class')] == str_cls:
-            str_p.append(list(po[ini_head.index(z)] for z in ['x', 'y', 'z']))   # add structure points
+            str_p.append(list(po[ini_head.index(z)] for z in ['x', 'y', 'z']))   # add structure points / поделить на 100 если надо
 
     report(f'загружено точек опор: {len(grd_p)}, земли: {len(str_p)}', rprt)
 
