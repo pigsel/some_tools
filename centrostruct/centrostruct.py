@@ -1,8 +1,7 @@
 # centroids of structures
 # using lidar data of powerline structures to find their axes
 
-# TODO - проверить ошибки в новых функциях,
-#  добавить репортов везде
+# TODO - добавить репортов везде
 #  запись промежуточных файлов в темп
 
 # TODO - добавить разворот
@@ -46,7 +45,6 @@ rprt = []   # репорт
 
 def bin_reader(p):
     # функция чтения бинфайлов terrascan - 8 или 16 bit
-    report('загружаем бин файл', rprt)
     bin_data = p.read_bytes()
 
     # HEADER
@@ -305,7 +303,8 @@ def cutbyboxes(cgtw_g, str_bounds, str_boxes, str_p, grd_p):
                     grd_f_path = temp_path / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_grd.xyz")
                     file_write(str_f_path, str_to_box)
                     file_write(grd_f_path, grd_to_box)
-                    report(f'записаны блоки для {idx}', rprt)
+                    report(f'ТЛО для {idx} записаны в отдельные файлы', rprt)
+    cgtw_g.to_csv('cgtw.txt', sep='\t')
     return cgtw_g
 
 
@@ -409,7 +408,7 @@ def find_center(cgtw_g, str_bounds, str_p, grd_p, buf_radius, buf_radius_2, poly
 
     return cgtow_corr, cgtow_corr_2, tower_tops, tower_tops_2
 
-#TODO добавить экспорт cgtw + колонку с информацией были ли ошибки при расчете (а может быть еще количество отражений от опор и земли?)
+#TODO добавить экспорт cgtw + колонку с информацией были ли ошибки при расчете
 
 def report(text, rep):
     print(text)
