@@ -2,8 +2,7 @@
 # using lidar data of powerline structures to find their axes
 
 # TODO - добавить репортов везде
-#  запись промежуточных файлов в темп
-# TODO - избавиться от умноженных на 100 координат
+# TODO -  запись промежуточных файлов в темп
 
 # TODO - добавить разворот
 # TODO - попробовать обрезку ног по траверсе ? (убирать оттяжки для столбов)
@@ -36,9 +35,9 @@ if not temp_path.exists():
 # переменные
 grd_class = 2   # номер класса с точками земли
 structure_points_class = 203   # номер класса с ТЛО от опор
-buf_radius = 1500   # первоначальный радиус отбора точек опор и земли (метры умноженные на 100)
-buf_radius_2 = 200   # радиус отбора точек земли для финального уточнения высоты (метры умноженные на 100)
-polybuff = 200   # буфер вокруг полигона при поиске центроида
+buf_radius = 15   # первоначальный радиус отбора точек опор и земли
+buf_radius_2 = 2   # радиус отбора точек земли для финального уточнения высоты
+polybuff = 2   # буфер вокруг полигона при поиске центроида
 bot_str = 30    # процент от высоты опоры снизу для определения центра
 up_str = 10    # процент от высоты опоры сверху для определения центра
 rprt = []   # репорт
@@ -192,7 +191,7 @@ def file_write(path, points_arr):
         points_writer = csv.writer(the_file, delimiter=' ')
         if type(points_arr) == MultiPoint:
             for po in points_arr:
-                p_coo = (round(po.x / 100, 2), round(po.y / 100, 2), round(po.z / 100, 2))   # для массивов делим на 100
+                p_coo = (po.x, po.y, po.z)
                 points_writer.writerow(p_coo)
         else:
             for tup in points_arr:
@@ -247,12 +246,12 @@ def centerline(cgt_p):
     # загружаем в панду (чтобы была возможность поработать со столбцами)
     cgtw_g = pd.DataFrame(c_lines, columns=['index', 'c_line', 'id', 'x', 'y', 'z']).set_index('index')
 
-
+    # пока этот блок закоментирован
     # теперь умножаем координаты опор на 100
     # т.к. в бинах точки умножены на 100, умножим и тут для простоты
     # чтобы не делить все массивы - так быстрее
-    for i in ['x', 'y', 'z']:
-        cgtw_g[i] = cgtw_g[i]*100    #TODO здесь умножение на 100 !! если в дальнейшем захочется от него избавиться
+    # for i in ['x', 'y', 'z']:
+    #     cgtw_g[i] = cgtw_g[i]*100    # здесь умножение на 100 !!
 
     # ну и в геопанду это всё
     cgtw_g = gpd.GeoDataFrame(cgtw_g, crs="EPSG:2193", geometry=gpd.points_from_xy(cgtw_g['x'], cgtw_g['y'], cgtw_g['z']))
@@ -261,20 +260,20 @@ def centerline(cgt_p):
 
 
 def points_cut(ini_points, ini_head, grd_cls, str_cls):
-    # collect only grd and structure xyz
+    # collect only grd and structure xyz and /100 as in bin file coords *100
     grd_p = []
     str_p = []
 
     for i in range(len(ini_points)):
         po = list(ini_points[i])   # each row in i_points (all values)
         if po[ini_head.index('class')] == grd_cls:
-            grd_p.append(list(po[ini_head.index(z)] for z in ['x', 'y', 'z']))   # add grd points / поделить на 100 если надо
+            grd_p.append(list(po[ini_head.index(c)]/100 for c in ['x', 'y', 'z']))   # add grd points
         elif po[ini_head.index('class')] == str_cls:
-            str_p.append(list(po[ini_head.index(z)] for z in ['x', 'y', 'z']))   # add structure points / поделить на 100 если надо
+            str_p.append(list(po[ini_head.index(c)]/100 for c in ['x', 'y', 'z']))   # add structure points
 
     report(f'загружено точек опор: {len(grd_p)}, земли: {len(str_p)}', rprt)
 
-    str_p = MultiPoint(str_p)   # делаем массивы shapely (multipoints - z points)
+    str_p = MultiPoint(str_p)   # делаем массивы shapely (multipoints - z points) / зачем? - для определения bounds
     grd_p = MultiPoint(grd_p)
     return str_p, grd_p
 
@@ -309,10 +308,7 @@ def cutbyboxes(cgtw_g, str_bounds, str_boxes, str_p, grd_p):
     return cgtw_g
 
 
-
-def find_center(cgtw_g, str_bounds, str_p, grd_p, buf_radius, buf_radius_2, polybuff):
-    # здесь уже работаем с нормальными координатами без умножения на 100,
-    # поэтому нужно определиться когда делить буферы на 100
+def find_center(cgtw_g, buf_radius, buf_radius_2, polybuff):
     # дальше цикл прохода по каждой опоре и уточнение ее центра
     cgtow_corr = []  # обновленные координаты опор середина
     tower_tops = []  # центры верхушек опор середина
@@ -323,7 +319,7 @@ def find_center(cgtw_g, str_bounds, str_p, grd_p, buf_radius, buf_radius_2, poly
         idx = cgtw_g.iloc[n].name  # find index and work with index
         # parse cgtw
         n_id = cgtw_g.loc[idx, 'id']  # id initial
-        n_x, n_y, n_z = (round(cgtw_g.loc[idx, i] / 100, 2) for i in ('x', 'y', 'z'))  # xyz initial
+        n_x, n_y, n_z = (round(cgtw_g.loc[idx, i], 2) for i in ('x', 'y', 'z'))  # xyz initial
         # cut from boxes
         if cgtw_g.loc[idx, 'havepoints'] == 1:
             box_str = xyz_read(temp_path / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_str.xyz"))
@@ -343,7 +339,7 @@ def find_center(cgtw_g, str_bounds, str_p, grd_p, buf_radius, buf_radius_2, poly
         elif len(tow_cut) == 0 and len(grd_cut) != 0:
             # если точек от опоры нет, но есть земля - уточняем землю
             grd_lvl = z_level_shp(n_x, n_y, grd_cut, buf_radius_2)
-            cgt = (n_id, n_x, n_y, round(grd_lvl / 100, 2))
+            cgt = (n_id, n_x, n_y, round(grd_lvl, 2))
             top = cgt_2 = top_2 = cgt
             report(f'опора: {n_id} - уточнена только высота (ТЛО опоры не найдены)', rprt)
 
@@ -352,8 +348,7 @@ def find_center(cgtw_g, str_bounds, str_p, grd_p, buf_radius, buf_radius_2, poly
             if len(grd_cut) != 0:
                 grd_lvl = np.mean(grd_cut, axis=0)[2]  # средняя высота земли для расчета примерной высоты опоры
             else:
-                grd_lvl = np.min(tow_cut, axis=0)[
-                    2]  # если нет земли нижняя точка определяется по нижнему отражению опоры
+                grd_lvl = np.min(tow_cut, axis=0)[2]  # если нет земли нижняя точка определяется по нижнему отражению опоры
                 report(f'опора: {n_id} - нет ТЛО земли, высота определена по нижнему отражению опоры', rprt)
 
             tow_top = np.max(tow_cut, axis=0)[2]  # верхнее отражение от опоры (наивысшая точка)
@@ -409,7 +404,6 @@ def find_center(cgtw_g, str_bounds, str_p, grd_p, buf_radius, buf_radius_2, poly
 
     return cgtow_corr, cgtow_corr_2, tower_tops, tower_tops_2
 
-#TODO добавить экспорт cgtw + колонку с информацией были ли ошибки при расчете
 
 def report(text, rep):
     print(text)
@@ -438,7 +432,7 @@ str_boxes = struct_boxes(cgtw_g, buf_radius)
 cgtw_g = cutbyboxes(cgtw_g, str_bounds, str_boxes, str_p, grd_p)
 
 # поиск центров
-cgtow_corr, cgtow_corr_2, tower_tops, tower_tops_2 = find_center(cgtw_g, str_bounds, str_p, grd_p, buf_radius, buf_radius_2, polybuff)
+cgtow_corr, cgtow_corr_2, tower_tops, tower_tops_2 = find_center(cgtw_g, buf_radius, buf_radius_2, polybuff)
 
 # записываем в файлы
 file_write(fin_cgt, cgtow_corr)
