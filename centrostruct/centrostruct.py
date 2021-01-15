@@ -1,8 +1,7 @@
 # centroids of structures
 # using lidar data of powerline structures to find their axes
 
-# TODO - добавить репортов везде
-# TODO -  запись промежуточных файлов в темп
+# TODO - упорядочить пути к файлам
 
 # TODO - добавить разворот
 # TODO - попробовать обрезку ног по траверсе ? (убирать оттяжки для столбов)
@@ -21,16 +20,24 @@ from shapely.ops import split
 import csv
 
 # пути
-p = Path(r'D:\python\some_tools\centrostruct\524_wir_16_notime_nocolor.bin')
-p_cgtw = Path(r'D:\python\some_tools\centrostruct\tower331.pts')   # path to ctow
-fin_cgt = Path(r'D:\python\some_tools\centrostruct\cgtow_corr.txt')    # final file
-fin_top = Path(r'D:\python\some_tools\centrostruct\tops_corr.txt')    # final file
-fin_cgt_2 = Path(r'D:\python\some_tools\centrostruct\cgtow_corr_m2.txt')    # final file
-fin_top_2 = Path(r'D:\python\some_tools\centrostruct\tops_corr_m2.txt')    # final file
-repr_path = Path(r'D:\python\some_tools\centrostruct\cst_report.txt')    # final report
-temp_path = p_cgtw.parent / 'temp'
-if not temp_path.exists():
-    temp_path.mkdir()
+workdir = Path(r'D:\python\some_tools\centrostruct')
+p_bin = workdir / '524_wir_16_notime_nocolor.bin'
+p_cgtw = workdir / 'tower331.pts'  # path to ctow
+
+resultdir = workdir / 'result'
+if not resultdir.exists():
+    resultdir.mkdir()
+
+fin_cgt = resultdir / 'cgtow_corr.txt'    # final file
+fin_top = resultdir / 'tops_corr.txt'    # final file
+fin_cgt_2 = resultdir / 'cgtow_corr_m2.txt'    # final file
+fin_top_2 = resultdir / 'tops_corr_m2.txt'    # final file
+repr_path = resultdir / 'cst_report.txt'    # final report
+
+tempdir = workdir / 'temp'
+if not tempdir.exists():
+    tempdir.mkdir()
+
 
 # переменные
 grd_class = 2   # номер класса с точками земли
@@ -299,8 +306,8 @@ def cutbyboxes(cgtw_g, str_bounds, str_boxes, str_p, grd_p):
                 if cgtw_g.loc[idx].geometry.within(box):
                     str_to_box = str_p.intersection(box)  # вырезаем
                     grd_to_box = grd_p.intersection(box)
-                    str_f_path = temp_path / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_str.xyz")
-                    grd_f_path = temp_path / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_grd.xyz")
+                    str_f_path = tempdir / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_str.xyz")
+                    grd_f_path = tempdir / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_grd.xyz")
                     file_write(str_f_path, str_to_box)
                     file_write(grd_f_path, grd_to_box)
                     report(f'ТЛО для {idx} записаны в отдельные файлы', rprt)
@@ -322,8 +329,8 @@ def find_center(cgtw_g, buf_radius, buf_radius_2, polybuff):
         n_x, n_y, n_z = (round(cgtw_g.loc[idx, i], 2) for i in ('x', 'y', 'z'))  # xyz initial
         # cut from boxes
         if cgtw_g.loc[idx, 'havepoints'] == 1:
-            box_str = xyz_read(temp_path / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_str.xyz"))
-            box_grd = xyz_read(temp_path / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_grd.xyz"))
+            box_str = xyz_read(tempdir / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_str.xyz"))
+            box_grd = xyz_read(tempdir / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_grd.xyz"))
             tow_buf = Point(n_x, n_y).buffer(buf_radius)  # делаем буфер
             tow_cut = box_str.intersection(tow_buf)  # вырезаем то что попало в буфер
             grd_cut = box_grd.intersection(tow_buf)
@@ -413,7 +420,7 @@ def report(text, rep):
 ################################################################
 #          начало расчетной части  -  собираем функции
 
-p_header, i_points = bin_reader(p)   # вызываем функцию чтения файла и получаем массив
+p_header, i_points = bin_reader(p_bin)   # вызываем функцию чтения файла и получаем массив
 
 # вырезаем массивы точек опор и земли
 str_p, grd_p = points_cut(i_points, p_header, grd_class, structure_points_class)
