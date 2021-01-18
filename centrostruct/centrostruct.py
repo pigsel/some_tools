@@ -1,7 +1,7 @@
 # centroids of structures
 # using lidar data of powerline structures to find their axes
 
-# TODO - упорядочить пути к файлам
+# TODO - cutbyboxes работает очень медленно - можно ли ускорить процесс?
 
 # TODO - добавить разворот
 # TODO - попробовать обрезку ног по траверсе ? (убирать оттяжки для столбов)
@@ -21,7 +21,7 @@ import csv
 
 # пути
 workdir = Path(r'D:\python\some_tools\centrostruct')
-p_bin = workdir / '524_wir_16_notime_nocolor.bin'
+p_bin = workdir / '524_wires_g25v.bin'
 p_cgtw = workdir / 'tower331.pts'  # path to ctow
 
 resultdir = workdir / 'result'
@@ -278,7 +278,7 @@ def points_cut(ini_points, ini_head, grd_cls, str_cls):
         elif po[ini_head.index('class')] == str_cls:
             str_p.append(list(po[ini_head.index(c)]/100 for c in ['x', 'y', 'z']))   # add structure points
 
-    report(f'загружено точек опор: {len(grd_p)}, земли: {len(str_p)}', rprt)
+    report(f'загружено точек опор: {len(str_p)}, земли: {len(grd_p)}', rprt)
 
     str_p = MultiPoint(str_p)   # делаем массивы shapely (multipoints - z points) / зачем? - для определения bounds
     grd_p = MultiPoint(grd_p)
@@ -293,6 +293,8 @@ def isinbounds(x, y, bounds):
 
 
 def cutbyboxes(cgtw_g, str_bounds, str_boxes, str_p, grd_p):
+    # TODO - проверка если данные уже нарезаны
+    # TODO - попробовать резать буфером (расстоянием от центра)
     # добавляем в таблицу опор колонку havepoints где будем отмечать есть точки или нет
     cgtw_g['havepoints'] = 0
     grd_to_box = []
@@ -331,7 +333,7 @@ def find_center(cgtw_g, buf_radius, buf_radius_2, polybuff):
         if cgtw_g.loc[idx, 'havepoints'] == 1:
             box_str = xyz_read(tempdir / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_str.xyz"))
             box_grd = xyz_read(tempdir / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_grd.xyz"))
-            tow_buf = Point(n_x, n_y).buffer(buf_radius)  # делаем буфер
+            tow_buf = Point(n_x, n_y).buffer(buf_radius)  # делаем буфер - контур
             tow_cut = box_str.intersection(tow_buf)  # вырезаем то что попало в буфер
             grd_cut = box_grd.intersection(tow_buf)
         else:
@@ -359,6 +361,7 @@ def find_center(cgtw_g, buf_radius, buf_radius_2, polybuff):
                 report(f'опора: {n_id} - нет ТЛО земли, высота определена по нижнему отражению опоры', rprt)
 
             tow_top = np.max(tow_cut, axis=0)[2]  # верхнее отражение от опоры (наивысшая точка)
+            tow_low = np.min(tow_cut, axis=0)[2]  # нижнее отражение от опоры (наивысшая точка)
 
             # начинаем с верхушки опоры
             up_lvl = (tow_top - grd_lvl) * ((100 - up_str) / 100) + grd_lvl
@@ -373,16 +376,18 @@ def find_center(cgtw_g, buf_radius, buf_radius_2, polybuff):
             up_fig_2 = tow_up.minimum_rotated_rectangle.centroid  # центр минимального описывающего прямоугольника
 
             # работа с основанием опоры - в пределах верхушки + up_buf
-            bot_lvl = (tow_top - grd_lvl) * (bot_str / 100) + grd_lvl  # высота части основания
+            bot_lvl = (tow_top - tow_low) * (bot_str / 100) + tow_low  # высота части основания от нижнего отражения
             tow_bot = []
             for i in range(len(tow_cut)):
                 if tow_cut[i].z < bot_lvl:
                     tow_bot.append(tow_cut[i])  # upper points
             tow_bot = MultiPoint(tow_bot)
+
             # находим центр
             bot_fig = tow_bot.convex_hull.buffer(polybuff).centroid  # центр буфера вокруг описывающего полигона
             # method 2
             bot_fig_2 = tow_bot.minimum_rotated_rectangle.centroid  # центр минимального описывающего прямоугольника
+
 
             # теперь уточним высоту на земле, для этого возьмем радиус поуже
             if len(grd_cut) != 0:
@@ -415,6 +420,8 @@ def find_center(cgtw_g, buf_radius, buf_radius_2, polybuff):
 def report(text, rep):
     print(text)
     rep.append(text)
+    with open(repr_path, 'w', newline='') as rep_file:
+        csv.writer(rep_file, delimiter='\n').writerow(rprt)
 
 
 ################################################################
@@ -448,8 +455,6 @@ file_write(fin_cgt_2, cgtow_corr_2)
 file_write(fin_top_2, tower_tops_2)
 report('записаны выходные файлы: cgtow_corr.txt, tops_corr.txt', rprt)
 
-#  сохраняем репорт на последок
-with open(repr_path, 'w', newline='') as rep_file:
-    csv.writer(rep_file, delimiter='\n').writerow(rprt)
+
 
 input('расчет завершен, нажмите Enter для выхода')
