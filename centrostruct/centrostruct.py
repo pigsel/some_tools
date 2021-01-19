@@ -15,6 +15,7 @@
 # TODO - интерфейс
 
 
+
 import struct
 import numpy as np
 import pandas as pd
