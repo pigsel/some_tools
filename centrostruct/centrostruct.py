@@ -330,6 +330,12 @@ def find_center(cgtw_g, buf_radius, buf_radius_2, polybuff):
     cgtow_corr_2 = []  # обновленные координаты опор середина (метод 2)
     tower_tops_2 = []  # центры верхушек опор середина (метод 2)
 
+    # добавляем нулевые колонки, затем туда вставим уточненные координаты (для первого и второго методов)
+    cgtw_g['x1'] = cgtw_g['y1'] = cgtw_g['z1'] = 0
+    cgtw_g['x2'] = cgtw_g['y2'] = cgtw_g['z2'] = 0
+    cgtw_g['angle'] = 0
+
+
     for n in range(len(cgtw_g)):
         idx = cgtw_g.iloc[n].name  # find index and work with index
         # parse cgtw
@@ -419,7 +425,10 @@ def find_center(cgtw_g, buf_radius, buf_radius_2, polybuff):
         tower_tops.append(top)
         cgtow_corr_2.append(cgt_2)
         tower_tops_2.append(top_2)
+        # TODO добавить всё это в cgtw_g
 
+
+    # TODO - delete duplicates
     return cgtow_corr, cgtow_corr_2, tower_tops, tower_tops_2
 
 
