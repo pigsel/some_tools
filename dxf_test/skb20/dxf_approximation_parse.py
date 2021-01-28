@@ -1,83 +1,67 @@
-#!/usr/bin/env python
-# coding: utf-8
+# read dxf approx, find mid points and calt distances between
+# python 3.9
+# author Igor Bertyaev
 
-# In[72]:
+# ! вимание - программа работает только с одной цепью, в расчетной директории допустимо только три файла
+# ! имя dxf  файла должно кончаться подчеркиванием и номером фазы *_1a.dxf
 
 
 from pathlib import Path
 import csv
+import pandas as pd
+# import openpyxl
 
 
-# In[73]:
-
-
+# задаем пути и переменные
 p = Path(r'D:\python\some_tools\dxf_test\skb20')
 cgtow = p / 'cgtow.txt'
 tabs = []   # таблицы по каждой фазе
 
 
+def dxf_poly_parse(path):
+    """ создаем функцию парсер dxf """
+    dxf = []  # list to write all data from file
+
+    with open(path) as dxf_file:
+        for line in dxf_file:
+            dxf.append(line.strip())  # write each stroke to list
+
+    polylines = []  # empty list for polylines
+    line = []  # list for coords of each polyline
+
+    for i in range(len(dxf)):
+        if dxf[i] == 'POLYLINE':
+            line = []  # list cleaning
+        if dxf[i] == 'VERTEX' and dxf[i + 1] == '10':
+            line.append((float(dxf[i + 2]), float(dxf[i + 4]), float(dxf[i + 6])))
+        if dxf[i] == 'SEQEND':
+            polylines.append(line)
+
+    return polylines
+
+
+def dist(x1, y1, x2, y2):
+    """ расчет расстояния """
+    return ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** (1 / 2)
+
+
+def dist3d(x1, y1, z1, x2, y2, z2):
+    """ расчет 3d расстояния """
+    return round((((x2-x1)**2 + (y2-y1)**2 + (z2-z1)**2)**(1/2)), 2)
+
+
 # запишем лист с координатами опор из файла
-
-# In[74]:
-
-
-ctw = []
+ctw = []   # будующий список координат опор
 with cgtow.open() as f:
     spam = csv.reader(f, delimiter='\t', skipinitialspace=True)
     for row in spam:
         if not row[1] == '':
             ctw.append(row)
-ctw[1][1]
 
 
-# In[75]:
-
-
-dxf_files = list(p.glob('40*.dxf'))   # list of dxf files
-
-
-# создаем функцию парсер dxf
-
-# In[76]:
-
-
-def dxf_poly_parse(path):
-    
-    dxf = []   # list to write all data from file
-    
-    with open(path) as dxf_file:
-        for line in dxf_file:
-            dxf.append(line.strip())   # write each stroke to list
-            
-    polylines = []   # empty list for polylines
-    line = []   # list for coords of each polyline
-
-    for i in range(len(dxf)):
-        if dxf[i] == 'POLYLINE':
-            line = []   # list cleaning
-        if dxf[i] == 'VERTEX' and dxf[i+1] == '10':
-            line.append((float(dxf[i+2]), float(dxf[i+4]), float(dxf[i+6])))
-        if dxf[i] == 'SEQEND':
-            polylines.append(line)
-    
-    return polylines
-
-
-# делаем функцию рассчета расстояния 2д
-
-# In[77]:
-
-
-def dist(x1, y1, x2, y2):
-    """ расчет расстояния """
-    return (((x2-x1)**2 + (y2-y1)**2)**(1/2))
-
+dxf_files = list(p.glob('*.dxf'))   # list of dxf files
 
 # проход по дхф файлам
-
-# In[78]:
-
-
 mid_points = []   # list for mid points
 for file in dxf_files:
     mids = []   # list of mid points for each phase
@@ -125,133 +109,35 @@ for file in dxf_files:
     mid_points.append(mids)
 
 
-# In[79]:
-
-
-import pandas as pd
-
-
-# In[26]:
-
-
-import openpyxl
-
-
-# In[80]:
-
-
-mp = {}
+mp = {}   # помещаем таблицы в словарь фаза: таблица
 for tab in mid_points:
     mp[tab[0][0]] = pd.DataFrame(tab, columns=['phase', 'from', 'to', 'x', 'y', 'z'])
 
-
-# In[81]:
-
-
-mp['1a']
-
-
-# In[82]:
-
-
 # del(mid_points)
 
-
-# In[83]:
-
-
+# добавляем в каждую таблицу колонку span
 for key in mp.keys():
     mp[key]['span'] = mp[key][['from', 'to']].agg(' - '.join, axis=1)
 
-
-# In[84]:
-
-
+# объединяем таблицы (сначала а и б, затем аб и с)
 mp_ab = mp['1a'].merge(mp['1b'][['span', 'x', 'y', 'z']], left_on='span', right_on='span', suffixes=('_1a', '_1b'))
-
-
-# In[85]:
-
-
-mp_ab
-
-
-# In[86]:
-
-
 mp_abc = mp_ab.merge(mp['1c'][['span', 'x', 'y', 'z']], left_on='span', right_on='span', suffixes=(False, '_1c'))
 
-
-# In[87]:
-
-
+# переименовываем столбцы чтобы удобнее читалось
 mp_abc = mp_abc.rename(columns={'x': 'x_1c', 'y': 'y_1c', 'z': 'z_1c'})
 
-
-# In[88]:
-
-
+# упорядочиваем столбцы
 mp_abc = mp_abc[['span', 'from', 'to', 'x_1a', 'y_1a', 'z_1a', 'x_1b', 'y_1b', 'z_1b', 'x_1c', 'y_1c', 'z_1c']]
 
-
-# In[89]:
-
-
-mp_abc
-
-
-# In[90]:
-
-
-def dist3d(x1, y1, z1, x2, y2, z2):
-    """ расчет 3d расстояния """
-    return round((((x2-x1)**2 + (y2-y1)**2 + (z2-z1)**2)**(1/2)), 2)
-
-
-# In[91]:
-
-
+# далее добавляем расчетные столбцы с расстояниями между фазами
 mp_abc['dist_ab'] = dist3d(mp_abc['x_1a'], mp_abc['y_1a'], mp_abc['z_1a'], mp_abc['x_1b'], mp_abc['y_1b'], mp_abc['z_1b'])
-
-
-# In[92]:
-
-
 mp_abc['dist_bc'] = dist3d(mp_abc['x_1b'], mp_abc['y_1b'], mp_abc['z_1b'], mp_abc['x_1c'], mp_abc['y_1c'], mp_abc['z_1c'])
-
-
-# In[93]:
-
-
 mp_abc['dist_ac'] = dist3d(mp_abc['x_1a'], mp_abc['y_1a'], mp_abc['z_1a'], mp_abc['x_1c'], mp_abc['y_1c'], mp_abc['z_1c'])
 
-
-# In[94]:
-
-
+# сохраняем координаты середин пролетов для каждой фазы:
 mp_abc.to_csv(path_or_buf='1a.txt', index=False, columns=['x_1a', 'y_1a', 'z_1a'], sep=' ', header=False)
-
-
-# In[95]:
-
-
 mp_abc.to_csv(path_or_buf='1b.txt', index=False, columns=['x_1b', 'y_1b', 'z_1b'], sep=' ', header=False)
-
-
-# In[96]:
-
-
 mp_abc.to_csv(path_or_buf='1c.txt', index=False, columns=['x_1c', 'y_1c', 'z_1c'], sep=' ', header=False)
 
-
-# In[97]:
-
-
+# сохраняем всю таблицу в xlsx
 mp_abc.to_excel("output.xlsx")
-
-
-# In[ ]:
-
-
-
-
