@@ -12,10 +12,34 @@ import pandas as pd
 # import openpyxl
 
 
-# задаем пути и переменные
-p = Path(r'D:\python\some_tools\dxf_test\skb20')
-cgtow = p / 'cgtow.txt'
-tabs = []   # таблицы по каждой фазе
+# interface
+print('программа найдет центральные точки аппроксимаций')
+print('и посчитает расстояния между ними')
+print('! внимание - пока программа работает только с одной цепью')
+print('\nпожалуйста создайте директорию в которой будут:')
+print('- файлы аппроксимаций в формате *_1a.dxf (3 шт)')
+print('- текстовый файл координат опор с семантикой *cgtow.pts')
+
+dir_path = input('укажите путь к директории и нажмите Enter\nПуть:')
+
+# check if input correct
+if Path(dir_path).exists():
+    p = Path(dir_path)
+    cgtow = list(p.glob('*cgtow*'))[0]
+    dxf_files = list(p.glob('*.dxf'))  # list of dxf files
+
+    if not cgtow.exists():
+        input('ошибка - файл cgtow  не найден, нажмите Enter для выхода')
+        quit()
+    elif len(dxf_files) > 3:
+        input('ошибка - количество dxf больше трех, нажмите Enter для выхода')
+        quit()
+    elif len(dxf_files) == 0:
+        input('ошибка - dxf файлы не найдены, нажмите Enter для выхода')
+        quit()
+else:
+    input('ошибка - рабочая директория задана не верно, нажмите Enter для выхода')
+    quit()
 
 
 def dxf_poly_parse(path):
@@ -50,7 +74,8 @@ def dist3d(x1, y1, z1, x2, y2, z2):
     return round((((x2-x1)**2 + (y2-y1)**2 + (z2-z1)**2)**(1/2)), 2)
 
 
-# запишем лист с координатами опор из файла
+# start here
+tabs = []   # таблицы по каждой фазе
 ctw = []   # будующий список координат опор
 with cgtow.open() as f:
     spam = csv.reader(f, delimiter='\t', skipinitialspace=True)
@@ -58,8 +83,6 @@ with cgtow.open() as f:
         if not row[1] == '':
             ctw.append(row)
 
-
-dxf_files = list(p.glob('*.dxf'))   # list of dxf files
 
 # проход по дхф файлам
 mid_points = []   # list for mid points
@@ -141,3 +164,6 @@ mp_abc.to_csv(path_or_buf='1c.txt', index=False, columns=['x_1c', 'y_1c', 'z_1c'
 
 # сохраняем всю таблицу в xlsx
 mp_abc.to_excel("output.xlsx")
+
+input("\nthe end\n\nнажмите Enter для выхода")
+quit()
