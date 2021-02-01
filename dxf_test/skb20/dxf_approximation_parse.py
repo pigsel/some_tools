@@ -30,13 +30,13 @@ if Path(dir_path).exists():
 
     if not cgtow.exists():
         input('ошибка - файл cgtow  не найден, нажмите Enter для выхода')
-        quit()
+        raise SystemExit()
     elif len(dxf_files) > 3:
         input('ошибка - количество dxf больше трех, нажмите Enter для выхода')
-        quit()
+        raise SystemExit()
     elif len(dxf_files) == 0:
         input('ошибка - dxf файлы не найдены, нажмите Enter для выхода')
-        quit()
+        raise SystemExit()
 else:
     input('ошибка - рабочая директория задана не верно, нажмите Enter для выхода')
     quit()
@@ -166,4 +166,4 @@ mp_abc.to_csv(path_or_buf='1c.txt', index=False, columns=['x_1c', 'y_1c', 'z_1c'
 mp_abc.to_excel("output.xlsx")
 
 input("\nthe end\n\nнажмите Enter для выхода")
-quit()
+raise SystemExit()

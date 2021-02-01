@@ -1,19 +1,21 @@
 # centroids of structures
 # using lidar data of powerline structures to find their axes
 
-# TODO - cutbyboxes работает очень медленно - можно ли ускорить процесс?
-#  попробовать вырезать при первоначальной работе с бином и вырезать радиусом
+# TODO - вывод общей таблицы со всеми уточненными координатами и углом разворота
+# TODO - удалить дубликаты координат опор при выводе? добавить в интерфейс вопрос
 
+# TODO - вывод в DXF
+
+# TODO - cutbyboxes работает очень медленно - можно ли ускорить процесс?
+#         попробовать вырезать при первоначальной работе с бином и вырезать радиусом
+# TODO - проверка если данные уже нарезаны
 
 # TODO - попробовать обрезку ног по траверсе ? (убирать оттяжки для столбов)
 #         распознание типа опоры - или брать инфо из вне?
 #         возможно задавать вольтаж линии при старте?
 
-# TODO - вывод в DXF
-# TODO - удалить дубликаты координат опор при выводе? добавить в интерфейс вопрос
 # TODO - добавить разворот
 # TODO - интерфейс
-
 
 
 import struct
@@ -299,8 +301,6 @@ def isinbounds(x, y, bounds):
 
 
 def cutbyboxes(cgtw_g, str_bounds, str_boxes, str_p, grd_p):
-    # TODO - проверка если данные уже нарезаны
-    # TODO - попробовать резать буфером (расстоянием от центра)
     # добавляем в таблицу опор колонку havepoints где будем отмечать есть точки или нет
     cgtw_g['havepoints'] = 0
     grd_to_box = []
@@ -332,7 +332,9 @@ def find_center(cgtw_g, buf_radius, buf_radius_2, polybuff):
 
     # добавляем нулевые колонки, затем туда вставим уточненные координаты (для первого и второго методов)
     cgtw_g['x1'] = cgtw_g['y1'] = cgtw_g['z1'] = 0
+    cgtw_g['x1_t'] = cgtw_g['y1_t'] = cgtw_g['z1_t'] = 0
     cgtw_g['x2'] = cgtw_g['y2'] = cgtw_g['z2'] = 0
+    cgtw_g['x2_t'] = cgtw_g['y2_t'] = cgtw_g['z2_t'] = 0
     cgtw_g['angle'] = 0
 
 
@@ -425,8 +427,18 @@ def find_center(cgtw_g, buf_radius, buf_radius_2, polybuff):
         tower_tops.append(top)
         cgtow_corr_2.append(cgt_2)
         tower_tops_2.append(top_2)
-        # TODO добавить всё это в cgtw_g
 
+        # теперь добавить всё это в cgtw_g
+        for numb, name in enumerate(['x1', 'y1', 'z1']):
+            cgtw_g.loc[idx, 'name'] = cgt[numb+1]
+        for numb, name in enumerate(['x1_t', 'y1_t', 'z1_t']):
+            cgtw_g.loc[idx, 'name'] = top[numb+1]
+        for numb, name in enumerate(['x2', 'y2', 'z2']):
+            cgtw_g.loc[idx, 'name'] = cgt[numb+1]
+        for numb, name in enumerate(['x2_t', 'y2_t', 'z2_t']):
+            cgtw_g.loc[idx, 'name'] = top[numb+1]
+
+    cgtw_g.to_excel(resultdir / "cgtw_output.xlsx")
 
     # TODO - delete duplicates
     return cgtow_corr, cgtow_corr_2, tower_tops, tower_tops_2
@@ -470,6 +482,5 @@ file_write(fin_cgt_2, cgtow_corr_2)
 file_write(fin_top_2, tower_tops_2)
 report('записаны выходные файлы: cgtow_corr.txt, tops_corr.txt', rprt)
 
-
-
 input('расчет завершен, нажмите Enter для выхода')
+raise SystemExit()
