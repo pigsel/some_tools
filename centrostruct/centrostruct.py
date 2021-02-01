@@ -1,7 +1,6 @@
 # centroids of structures
 # using lidar data of powerline structures to find their axes
 
-# TODO - вывод общей таблицы со всеми уточненными координатами и углом разворота
 # TODO - удалить дубликаты координат опор при выводе? добавить в интерфейс вопрос
 
 # TODO - вывод в DXF
@@ -51,7 +50,7 @@ if not tempdir.exists():
 grd_class = 2   # номер класса с точками земли
 structure_points_class = 203   # номер класса с ТЛО от опор
 buf_radius = 15   # первоначальный радиус отбора точек опор и земли
-buf_radius_2 = 1   # радиус отбора точек земли для финального уточнения высоты
+buf_radius_2 = 2   # радиус отбора точек земли для финального уточнения высоты
 polybuff = 2   # буфер вокруг полигона при поиске центроида
 bot_str = 30    # процент от высоты опоры снизу для определения центра
 up_str = 10    # процент от высоты опоры сверху для определения центра
@@ -236,7 +235,11 @@ def z_level_shp(x, y, g_array, radius):
     # for shapely array
     s = Point(x, y)  # используем уточненную координату
     grd_cut2 = g_array.intersection(s.buffer(radius))   # вырезаем поуже
-    return np.mean(grd_cut2, axis=0)[2]  # новый уровень земли
+    if len(grd_cut2) > 0:
+        return np.mean(grd_cut2, axis=0)[2]  # новый уровень земли
+    else:
+        report('ошибка определения высоты опоры, приравниваем к 0', rprt)
+        return 0
 
 
 def centerline(cgt_p):
@@ -332,9 +335,9 @@ def find_center(cgtw_g, buf_radius, buf_radius_2, polybuff):
 
     # добавляем нулевые колонки, затем туда вставим уточненные координаты (для первого и второго методов)
     cgtw_g['x1'] = cgtw_g['y1'] = cgtw_g['z1'] = 0
+    cgtw_g['x2'] = cgtw_g['y2'] = 0
     cgtw_g['x1_t'] = cgtw_g['y1_t'] = cgtw_g['z1_t'] = 0
-    cgtw_g['x2'] = cgtw_g['y2'] = cgtw_g['z2'] = 0
-    cgtw_g['x2_t'] = cgtw_g['y2_t'] = cgtw_g['z2_t'] = 0
+    cgtw_g['x2_t'] = cgtw_g['y2_t'] = 0
     cgtw_g['angle'] = 0
 
 
@@ -402,7 +405,6 @@ def find_center(cgtw_g, buf_radius, buf_radius_2, polybuff):
             # method 2
             bot_fig_2 = tow_bot.minimum_rotated_rectangle.centroid  # центр минимального описывающего прямоугольника
 
-
             # теперь уточним высоту на земле, для этого возьмем радиус поуже
             if len(grd_cut) != 0:
                 grd_lvl = z_level_shp(bot_fig.x, bot_fig.y, grd_cut, buf_radius_2)
@@ -430,15 +432,15 @@ def find_center(cgtw_g, buf_radius, buf_radius_2, polybuff):
 
         # теперь добавить всё это в cgtw_g
         for numb, name in enumerate(['x1', 'y1', 'z1']):
-            cgtw_g.loc[idx, 'name'] = cgt[numb+1]
+            cgtw_g.loc[idx, name] = cgt[numb+1]
         for numb, name in enumerate(['x1_t', 'y1_t', 'z1_t']):
-            cgtw_g.loc[idx, 'name'] = top[numb+1]
-        for numb, name in enumerate(['x2', 'y2', 'z2']):
-            cgtw_g.loc[idx, 'name'] = cgt[numb+1]
-        for numb, name in enumerate(['x2_t', 'y2_t', 'z2_t']):
-            cgtw_g.loc[idx, 'name'] = top[numb+1]
+            cgtw_g.loc[idx, name] = top[numb+1]
+        cgtw_g.loc[idx, 'x2'] = cgt_2[1]
+        cgtw_g.loc[idx, 'y2'] = cgt_2[2]
+        cgtw_g.loc[idx, 'x2_t'] = top_2[1]
+        cgtw_g.loc[idx, 'y2_t'] = top_2[2]
 
-    cgtw_g.to_excel(resultdir / "cgtw_output.xlsx")
+    cgtw_g.to_excel(resultdir / "cgtw_output.xlsx")  # save cgtw_g to xls
 
     # TODO - delete duplicates
     return cgtow_corr, cgtow_corr_2, tower_tops, tower_tops_2
