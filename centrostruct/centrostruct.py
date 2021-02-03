@@ -442,8 +442,8 @@ def find_center(cgtw_g, buf_radius, buf_radius_2, polybuff):
 
     cgtw_g.to_excel(resultdir / "cgtw_output.xlsx")  # save cgtw_g to xls
 
-    # TODO - delete duplicates
-    return cgtow_corr, cgtow_corr_2, tower_tops, tower_tops_2
+    # возвращаем листы без дубликатов
+    return list(set(cgtow_corr)), list(set(cgtow_corr_2)), list(set(tower_tops)), list(set(tower_tops_2))
 
 
 def report(text, rep):
