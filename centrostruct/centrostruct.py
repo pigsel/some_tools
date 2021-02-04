@@ -315,13 +315,14 @@ def cutbyboxes(cgtw_g, str_bounds, str_boxes, str_p, grd_p):
             cgtw_g.loc[idx, 'havepoints'] = 1
             for box in str_boxes:
                 if cgtw_g.loc[idx].geometry.within(box):
-                    str_to_box = str_p.intersection(box)  # вырезаем
-                    grd_to_box = grd_p.intersection(box)
                     str_f_path = tempdir / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_str.xyz")
                     grd_f_path = tempdir / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_grd.xyz")
-                    file_write(str_f_path, str_to_box)
-                    file_write(grd_f_path, grd_to_box)
-                    report(f'ТЛО для {idx} записаны в отдельные файлы', rprt)
+                    if not str_f_path.exists():
+                        str_to_box = str_p.intersection(box)  # вырезаем
+                        grd_to_box = grd_p.intersection(box)
+                        file_write(str_f_path, str_to_box)
+                        file_write(grd_f_path, grd_to_box)
+                        report(f'ТЛО для {idx} записаны в отдельные файлы', rprt)
     cgtw_g.to_csv('cgtw.txt', sep='\t')
     return cgtw_g
 
