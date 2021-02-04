@@ -1,13 +1,10 @@
 # centroids of structures
 # using lidar data of powerline structures to find their axes
 
-# TODO - удалить дубликаты координат опор при выводе? добавить в интерфейс вопрос
-
 # TODO - вывод в DXF
 
 # TODO - cutbyboxes работает очень медленно - можно ли ускорить процесс?
 #         попробовать вырезать при первоначальной работе с бином и вырезать радиусом
-# TODO - проверка если данные уже нарезаны
 
 # TODO - попробовать обрезку ног по траверсе ? (убирать оттяжки для столбов)
 #         распознание типа опоры - или брать инфо из вне?
@@ -291,8 +288,8 @@ def points_cut(ini_points, ini_head, grd_cls, str_cls):
 
     report(f'загружено точек опор: {len(str_p)}, земли: {len(grd_p)}', rprt)
 
-    str_p = MultiPoint(str_p)   # делаем массивы shapely (multipoints - z points) / зачем? - для определения bounds
-    grd_p = MultiPoint(grd_p)
+    # str_p = MultiPoint(str_p)   # делаем массивы shapely (multipoints - z points) / зачем? - для определения bounds
+    # grd_p = MultiPoint(grd_p)
     return str_p, grd_p
 
 
@@ -303,7 +300,44 @@ def isinbounds(x, y, bounds):
         return False
 
 
-def cutbyboxes(cgtw_g, str_bounds, str_boxes, str_p, grd_p):
+# этот вариант вырезает по боксам, что довольно долго изза shapely - пока не используем
+# def cutbyboxes(cgtw_g, str_bounds, str_boxes, str_p, grd_p):
+#     str_p = MultiPoint(str_p)   # делаем массивы shapely (multipoints - z points)
+#     grd_p = MultiPoint(grd_p)
+#     # добавляем в таблицу опор колонку havepoints где будем отмечать есть точки или нет
+#     cgtw_g['havepoints'] = 0
+#     grd_to_box = []
+#     str_to_box = []
+#     # дальше проверяем есть ли точки на эту опору и проставляем метки
+#     for n in range(len(cgtw_g)):
+#         idx = cgtw_g.iloc[n].name   # find index and work with it
+#         if isinbounds(cgtw_g.loc[idx, 'x'], cgtw_g.loc[idx, 'y'], str_bounds):
+#             cgtw_g.loc[idx, 'havepoints'] = 1
+#             for box in str_boxes:
+#                 if cgtw_g.loc[idx].geometry.within(box):
+#                     str_f_path = tempdir / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_str.xyz")
+#                     grd_f_path = tempdir / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_grd.xyz")
+#                     if not str_f_path.exists():
+#                         str_to_box = str_p.intersection(box)  # вырезаем
+#                         grd_to_box = grd_p.intersection(box)
+#                         file_write(str_f_path, str_to_box)
+#                         file_write(grd_f_path, grd_to_box)
+#                         report(f'ТЛО для {idx} записаны в отдельные файлы', rprt)
+#     cgtw_g.to_csv('cgtw.txt', sep='\t')
+#     return cgtw_g
+
+
+def cut_by_dist(arr, x, y, buf):
+    spamlist = []
+    buf = buf**2
+    for row in arr:
+        dist = (x - row[0]) ** 2 + (y - row[1]) ** 2
+        if dist < buf:
+            spamlist.append(row)
+    return spamlist
+
+
+def cutbyboxes2(cgtw_g, str_bounds, str_boxes, str_p, grd_p, buf_radius):
     # добавляем в таблицу опор колонку havepoints где будем отмечать есть точки или нет
     cgtw_g['havepoints'] = 0
     grd_to_box = []
@@ -318,8 +352,9 @@ def cutbyboxes(cgtw_g, str_bounds, str_boxes, str_p, grd_p):
                     str_f_path = tempdir / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_str.xyz")
                     grd_f_path = tempdir / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_grd.xyz")
                     if not str_f_path.exists():
-                        str_to_box = str_p.intersection(box)  # вырезаем
-                        grd_to_box = grd_p.intersection(box)
+
+                        str_to_box = cut_by_dist(str_p, cgtw_g.loc[idx, 'x'], cgtw_g.loc[idx, 'y'], buf_radius)  # вырезаем
+                        grd_to_box = cut_by_dist(grd_p, cgtw_g.loc[idx, 'x'], cgtw_g.loc[idx, 'y'], buf_radius)
                         file_write(str_f_path, str_to_box)
                         file_write(grd_f_path, grd_to_box)
                         report(f'ТЛО для {idx} записаны в отдельные файлы', rprt)
@@ -358,11 +393,8 @@ def find_center(cgtw_g, buf_radius, buf_radius_2, polybuff):
         n_x, n_y, n_z = (round(cgtw_g.loc[idx, i], 2) for i in ('x', 'y', 'z'))  # xyz initial
         # cut from boxes
         if cgtw_g.loc[idx, 'havepoints'] == 1:
-            box_str = xyz_read(tempdir / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_str.xyz"))
-            box_grd = xyz_read(tempdir / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_grd.xyz"))
-            tow_buf = Point(n_x, n_y).buffer(buf_radius)  # делаем буфер - контур
-            tow_cut = box_str.intersection(tow_buf)  # вырезаем то что попало в буфер
-            grd_cut = box_grd.intersection(tow_buf)
+            tow_cut = xyz_read(tempdir / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_str.xyz"))
+            grd_cut = xyz_read(tempdir / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_grd.xyz"))
         else:
             tow_cut = grd_cut = []  # пустой лист если опоры вне области точек
 
@@ -464,7 +496,7 @@ def report(text, rep):
 
 
 ################################################################
-#          начало расчетной части  -  собираем функции
+#  начало расчетной части  -  собираем функции
 
 p_header, i_points = bin_reader(p_bin)   # вызываем функцию чтения файла и получаем массив
 
@@ -476,13 +508,13 @@ del i_points  # удаляем т.к. не нужно больше
 cgtw_g = centerline(p_cgtw)   # загружаем координаты опор
 
 # x-y bounding box is a (minx, miny, maxx, maxy) tuple / shapely
-str_bounds = str_p.bounds   # границы загружаемых точек
+str_bounds = MultiPoint(str_p).bounds   # границы загружаемых точек
 
 # ищем коридоры
 str_boxes = struct_boxes(cgtw_g, buf_radius)
 
-# разбиваем коридоры
-cgtw_g = cutbyboxes(cgtw_g, str_bounds, str_boxes, str_p, grd_p)
+# cut
+cgtw_g = cutbyboxes2(cgtw_g, str_bounds, str_boxes, str_p, grd_p, buf_radius)
 
 # поиск центров
 cgtow_corr, cgtow_corr_2, tower_tops, tower_tops_2 = find_center(cgtw_g, buf_radius, buf_radius_2, polybuff)
