@@ -327,6 +327,15 @@ def cutbyboxes(cgtw_g, str_bounds, str_boxes, str_p, grd_p):
     return cgtw_g
 
 
+def dub_del(li):
+    # python has 'set' function to delete dubs, but it make list unsort
+    new_li = []
+    for x in range(len(li)):
+        if li[x] not in new_li:
+            new_li.append(li[x])
+    return new_li
+
+
 def find_center(cgtw_g, buf_radius, buf_radius_2, polybuff):
     # дальше цикл прохода по каждой опоре и уточнение ее центра
     cgtow_corr = []  # обновленные координаты опор середина
@@ -444,7 +453,7 @@ def find_center(cgtw_g, buf_radius, buf_radius_2, polybuff):
     cgtw_g.to_excel(resultdir / "cgtw_output.xlsx")  # save cgtw_g to xls
 
     # возвращаем листы без дубликатов
-    return list(set(cgtow_corr)), list(set(cgtow_corr_2)), list(set(tower_tops)), list(set(tower_tops_2))
+    return dub_del(cgtow_corr), dub_del(cgtow_corr_2), dub_del(tower_tops), dub_del(tower_tops_2)
 
 
 def report(text, rep):
