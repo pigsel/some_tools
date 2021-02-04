@@ -3,9 +3,6 @@
 
 # TODO - вывод в DXF
 
-# TODO - cutbyboxes работает очень медленно - можно ли ускорить процесс?
-#         попробовать вырезать при первоначальной работе с бином и вырезать радиусом
-
 # TODO - попробовать обрезку ног по траверсе ? (убирать оттяжки для столбов)
 #         распознание типа опоры - или брать инфо из вне?
 #         возможно задавать вольтаж линии при старте?
@@ -34,9 +31,8 @@ if not resultdir.exists():
 
 fin_cgt = resultdir / 'cgtow_corr.txt'    # final file
 fin_top = resultdir / 'tops_corr.txt'    # final file
-fin_cgt_2 = resultdir / 'cgtow_corr_m2.txt'    # final file
-fin_top_2 = resultdir / 'tops_corr_m2.txt'    # final file
 repr_path = resultdir / 'cst_report.txt'    # final report
+p_dxf = resultdir / 'cline_corr.dxf'
 
 tempdir = workdir / 'temp'
 if not tempdir.exists():
@@ -371,18 +367,14 @@ def dub_del(li):
     return new_li
 
 
-def find_center(cgtw_g, buf_radius, buf_radius_2, polybuff):
+def find_center(cgtw_g, buf_radius_2, polybuff):
     # дальше цикл прохода по каждой опоре и уточнение ее центра
     cgtow_corr = []  # обновленные координаты опор середина
     tower_tops = []  # центры верхушек опор середина
-    cgtow_corr_2 = []  # обновленные координаты опор середина (метод 2)
-    tower_tops_2 = []  # центры верхушек опор середина (метод 2)
 
     # добавляем нулевые колонки, затем туда вставим уточненные координаты (для первого и второго методов)
     cgtw_g['x1'] = cgtw_g['y1'] = cgtw_g['z1'] = 0
-    cgtw_g['x2'] = cgtw_g['y2'] = 0
     cgtw_g['x1_t'] = cgtw_g['y1_t'] = cgtw_g['z1_t'] = 0
-    cgtw_g['x2_t'] = cgtw_g['y2_t'] = 0
     cgtw_g['angle'] = 0
 
 
@@ -432,7 +424,7 @@ def find_center(cgtw_g, buf_radius, buf_radius_2, polybuff):
             # находим центр
             up_fig = tow_up.convex_hull.buffer(polybuff).centroid  # центр буфера вокруг описывающего полигона
             # method 2
-            up_fig_2 = tow_up.minimum_rotated_rectangle.centroid  # центр минимального описывающего прямоугольника
+            # up_fig_2 = tow_up.minimum_rotated_rectangle.centroid  # центр минимального описывающего прямоугольника
 
             # работа с основанием опоры - в пределах верхушки + up_buf
             bot_lvl = (tow_top - tow_low) * (bot_str / 100) + tow_low  # высота части основания от нижнего отражения
@@ -445,7 +437,7 @@ def find_center(cgtw_g, buf_radius, buf_radius_2, polybuff):
             # находим центр
             bot_fig = tow_bot.convex_hull.buffer(polybuff).centroid  # центр буфера вокруг описывающего полигона
             # method 2
-            bot_fig_2 = tow_bot.minimum_rotated_rectangle.centroid  # центр минимального описывающего прямоугольника
+            # bot_fig_2 = tow_bot.minimum_rotated_rectangle.centroid  # центр минимального описывающего прямоугольника
 
             # теперь уточним высоту на земле, для этого возьмем радиус поуже
             if len(grd_cut) != 0:
@@ -455,8 +447,8 @@ def find_center(cgtw_g, buf_radius, buf_radius_2, polybuff):
             cgt = (n_id, round(bot_fig.x, 2), round(bot_fig.y, 2), round(grd_lvl, 2))
             top = (n_id, round(up_fig.x, 2), round(up_fig.y, 2), round(tow_top, 2))
             # второй метод
-            cgt_2 = (n_id, round(bot_fig_2.x, 2), round(bot_fig_2.y, 2), round(grd_lvl, 2))
-            top_2 = (n_id, round(up_fig_2.x, 2), round(up_fig_2.y, 2), round(tow_top, 2))
+            # cgt_2 = (n_id, round(bot_fig_2.x, 2), round(bot_fig_2.y, 2), round(grd_lvl, 2))
+            # top_2 = (n_id, round(up_fig_2.x, 2), round(up_fig_2.y, 2), round(tow_top, 2))
 
             report(f'опора: {n_id} - координаты уточнены', rprt)
 
@@ -469,23 +461,17 @@ def find_center(cgtw_g, buf_radius, buf_radius_2, polybuff):
         # теперь добавляем полученное в списки
         cgtow_corr.append(cgt)
         tower_tops.append(top)
-        cgtow_corr_2.append(cgt_2)
-        tower_tops_2.append(top_2)
 
         # теперь добавить всё это в cgtw_g
         for numb, name in enumerate(['x1', 'y1', 'z1']):
             cgtw_g.loc[idx, name] = cgt[numb+1]
         for numb, name in enumerate(['x1_t', 'y1_t', 'z1_t']):
             cgtw_g.loc[idx, name] = top[numb+1]
-        cgtw_g.loc[idx, 'x2'] = cgt_2[1]
-        cgtw_g.loc[idx, 'y2'] = cgt_2[2]
-        cgtw_g.loc[idx, 'x2_t'] = top_2[1]
-        cgtw_g.loc[idx, 'y2_t'] = top_2[2]
 
     cgtw_g.to_excel(resultdir / "cgtw_output.xlsx")  # save cgtw_g to xls
 
     # возвращаем листы без дубликатов
-    return dub_del(cgtow_corr), dub_del(cgtow_corr_2), dub_del(tower_tops), dub_del(tower_tops_2)
+    return dub_del(cgtow_corr), dub_del(tower_tops), cgtw_g
 
 
 def report(text, rep):
@@ -493,6 +479,68 @@ def report(text, rep):
     rep.append(text)
     with open(repr_path, 'w', newline='') as rep_file:
         csv.writer(rep_file, delimiter='\n').writerow(rprt)
+
+
+# creating DXF
+def vert_axes(cgtw_g):
+    # values
+    layername = 'Vert'
+    color = 0
+    text = ""   # future part of DXF with vert axes
+    structures = []   # list of str to exclude dubs
+
+    for n in range(len(cgtw_g)):
+        idx = cgtw_g.iloc[n].name   # find index and work with it
+
+        spam = cgtw_g.loc[idx, 'id']   # structure ID
+        # check if it not in list
+        if spam not in structures:
+            structures.append(spam)
+
+            # add header
+            text += f'0\nLINE\n 8\n{layername}\n 62\n     {color}\n'
+
+            # add bottom coords
+            text += f" 10\n{cgtw_g.loc[idx, 'x1']}\n 20\n{cgtw_g.loc[idx, 'y1']}\n 30\n{cgtw_g.loc[idx, 'z1']}\n"
+
+            # add top coords
+            text += f" 11\n{cgtw_g.loc[idx, 'x1_t']}\n 21\n{cgtw_g.loc[idx, 'y1_t']}\n 31\n{cgtw_g.loc[idx, 'z1_t']}\n"
+
+    return text
+
+
+def polylines(cgtw_g):
+    "создает часть файла с полилиниями (ценртлайн)"
+
+    # переменные
+    layername = 'Centerline'
+    color = 2
+    closed = 136  # для polyline 136 = не замкнуто, 9 = замкнуто
+    line_num = 1
+    # header
+    text = f'  0\nPOLYLINE\n 8\n{layername}\n 62\n     {color}\n 70\n   {closed}\n'
+
+    for n in range(len(cgtw_g)):
+        idx = cgtw_g.iloc[n].name   # find index and work with it
+
+        if line_num == cgtw_g.loc[idx, 'c_line']:
+            # write coord for each vertex for same line
+            text += f"  0\nVERTEX\n 10\n{cgtw_g.loc[idx, 'x1']}\n 20\n{cgtw_g.loc[idx, 'y1']}\n 30\n{cgtw_g.loc[idx, 'z1']}\n"
+
+        else:
+            # close existing line
+            text += '  0\nSEQEND\n'
+            # if we have another line - write also header and first vertex
+            line_num = cgtw_g.loc[idx, 'c_line']   # give line new number
+            # header again for new line
+            text += f'  0\nPOLYLINE\n 8\n{layername}\n 62\n     {color}\n 70\n   {closed}\n'
+            # first vertex
+            text += f"  0\nVERTEX\n 10\n{cgtw_g.loc[idx, 'x1']}\n 20\n{cgtw_g.loc[idx, 'y1']}\n 30\n{cgtw_g.loc[idx, 'z1']}\n"
+
+    # close last line as it is last vertex
+    text += '  0\nSEQEND\n'
+
+    return text
 
 
 ################################################################
@@ -517,14 +565,15 @@ str_boxes = struct_boxes(cgtw_g, buf_radius)
 cgtw_g = cutbyboxes2(cgtw_g, str_bounds, str_boxes, str_p, grd_p, buf_radius)
 
 # поиск центров
-cgtow_corr, cgtow_corr_2, tower_tops, tower_tops_2 = find_center(cgtw_g, buf_radius, buf_radius_2, polybuff)
+cgtow_corr, tower_tops, cgtw_g = find_center(cgtw_g, buf_radius_2, polybuff)
 
 # записываем в файлы
 file_write(fin_cgt, cgtow_corr)
 file_write(fin_top, tower_tops)
-file_write(fin_cgt_2, cgtow_corr_2)
-file_write(fin_top_2, tower_tops_2)
 report('записаны выходные файлы: cgtow_corr.txt, tops_corr.txt', rprt)
+
+# creating DXF
+p_dxf.write_text('  0\nSECTION\n  2\nENTITIES\n' + vert_axes(cgtw_g) + polylines(cgtw_g) + '  0\nENDSEC\n  0\nEOF')
 
 input('расчет завершен, нажмите Enter для выхода')
 raise SystemExit()
