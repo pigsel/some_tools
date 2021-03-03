@@ -192,7 +192,7 @@ if len(ew_list) > 0:
         for key in mp.keys():
             if key != w:
                 spam_phases.append(key)   # add phase name to list
-                spam_tab = spam_tab.merge(mp[key][['span', 'x', 'y', 'z']], left_on='span', right_on='span', suffixes=(str('_'+w), str('_'+key)))
+                spam_tab = spam_tab.merge(mp[key][['span', 'x', 'y', 'z']], how='left', left_on='span', right_on='span', suffixes=(str('_'+w), str('_'+key)))
                 # переименовываем столбцы чтобы удобнее читалось (если это не последняя фаза)
                 if len(spam_phases) != len(mp.keys())-1:
                     spam_tab = spam_tab.rename(columns={str('x_'+w): 'x', str('y_'+w): 'y', str('z_'+w): 'z'})
@@ -204,7 +204,7 @@ if len(ew_list) > 0:
 
         # сохраняем всю таблицу в xlsx
         ew_path = p / f'{w}_output.xlsx'
-        spam_tab.to_excel(ew_path, index=False)
+        spam_tab.to_excel(ew_path, na_rep='-', index=False)
 
 #
 # # сохраняем координаты середин пролетов для каждой фазы:
