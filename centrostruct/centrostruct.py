@@ -19,9 +19,9 @@ from shapely.ops import split
 import csv
 
 # пути
-workdir = Path(r'D:\python\some_tools\centrostruct')
-p_bin = workdir / '524_wires_g25v.bin'
-p_cgtw = workdir / 'tower331.pts'  # path to ctow
+workdir = Path(r'D:\work\2021\TP_21\647_INV-TWI-A\py_cgt')
+p_bin = workdir / '647_wires_g25v.bin'
+p_cgtw = workdir / 'ctow.pts'  # path to ctow
 
 resultdir = workdir / 'result'
 if not resultdir.exists():
@@ -43,7 +43,7 @@ structure_points_class = 203   # номер класса с ТЛО от опор
 buf_radius = 15   # первоначальный радиус отбора точек опор и земли
 buf_radius_2 = 2   # радиус отбора точек земли для финального уточнения высоты
 polybuff = 2   # буфер вокруг полигона при поиске центроида
-bot_str = 30    # процент от высоты опоры снизу для определения центра
+bot_str = 20    # процент от высоты опоры снизу для определения центра
 up_str = 10    # процент от высоты опоры сверху для определения центра
 rprt = []   # репорт
 
@@ -235,32 +235,26 @@ def z_level_shp(x, y, g_array, radius):
 
 def centerline(cgt_p):
     c_lines = []  # list of structures
-    with open(cgt_p, newline='') as f:
-        reader = csv.reader(f, delimiter=' ', skipinitialspace=True)
-        num_of_clines = 1  # number of c-line
-        str_index = 1  # index of structure
-        for row in reader:
-            if len(row) == 4:
+    num_of_clines = 1  # number of c-line
+    str_index = 1  # index of structure
+    with open(p_cgtw) as ffile:
+        for line in ffile:
+            stroka = line.strip('\n').split()
+            if len(stroka) == 4:
                 # ctow file should contain id, x, y, z in each row
                 # to c-lines list we add to each row index of stucture and number of c-line
-                c_lines.append((str_index, num_of_clines, row[0], float(row[1]), float(row[2]), float(row[3])))
+                c_lines.append((str_index, num_of_clines, stroka[0], float(stroka[1]), float(stroka[2]), float(stroka[3])))
                 str_index += 1  # index for next structure
-            elif len(row) == 0:
+            elif len(stroka) == 0:
                 num_of_clines += 1  # blank row means next c-line follow
             else:
                 print('ctow file error')
+
     report(f'в объекте {num_of_clines} центрлайн, загружено опор: {len(c_lines)}', rprt)
     #print(c_lines)
 
     # загружаем в панду (чтобы была возможность поработать со столбцами)
     cgtw_g = pd.DataFrame(c_lines, columns=['index', 'c_line', 'id', 'x', 'y', 'z']).set_index('index')
-
-    # пока этот блок закоментирован
-    # теперь умножаем координаты опор на 100
-    # т.к. в бинах точки умножены на 100, умножим и тут для простоты
-    # чтобы не делить все массивы - так быстрее
-    # for i in ['x', 'y', 'z']:
-    #     cgtw_g[i] = cgtw_g[i]*100    # здесь умножение на 100 !!
 
     # ну и в геопанду это всё
     cgtw_g = gpd.GeoDataFrame(cgtw_g, crs="EPSG:2193", geometry=gpd.points_from_xy(cgtw_g['x'], cgtw_g['y'], cgtw_g['z']))
@@ -292,33 +286,6 @@ def isinbounds(x, y, bounds):
         return True
     else:
         return False
-
-
-# этот вариант вырезает по боксам, что довольно долго изза shapely - пока не используем
-# def cutbyboxes(cgtw_g, str_bounds, str_boxes, str_p, grd_p):
-#     str_p = MultiPoint(str_p)   # делаем массивы shapely (multipoints - z points)
-#     grd_p = MultiPoint(grd_p)
-#     # добавляем в таблицу опор колонку havepoints где будем отмечать есть точки или нет
-#     cgtw_g['havepoints'] = 0
-#     grd_to_box = []
-#     str_to_box = []
-#     # дальше проверяем есть ли точки на эту опору и проставляем метки
-#     for n in range(len(cgtw_g)):
-#         idx = cgtw_g.iloc[n].name   # find index and work with it
-#         if isinbounds(cgtw_g.loc[idx, 'x'], cgtw_g.loc[idx, 'y'], str_bounds):
-#             cgtw_g.loc[idx, 'havepoints'] = 1
-#             for box in str_boxes:
-#                 if cgtw_g.loc[idx].geometry.within(box):
-#                     str_f_path = tempdir / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_str.xyz")
-#                     grd_f_path = tempdir / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_grd.xyz")
-#                     if not str_f_path.exists():
-#                         str_to_box = str_p.intersection(box)  # вырезаем
-#                         grd_to_box = grd_p.intersection(box)
-#                         file_write(str_f_path, str_to_box)
-#                         file_write(grd_f_path, grd_to_box)
-#                         report(f'ТЛО для {idx} записаны в отдельные файлы', rprt)
-#     cgtw_g.to_csv('cgtw.txt', sep='\t')
-#     return cgtw_g
 
 
 def cut_by_dist(arr, x, y, buf):
@@ -409,8 +376,10 @@ def find_center(cgtw_g, buf_radius_2, polybuff):
                 grd_lvl = np.min(tow_cut, axis=0)[2]  # если нет земли нижняя точка определяется по нижнему отражению опоры
                 report(f'опора: {n_id} - нет ТЛО земли, высота определена по нижнему отражению опоры', rprt)
 
-            tow_top = np.max(tow_cut, axis=0)[2]  # верхнее отражение от опоры (наивысшая точка)
-            tow_low = np.min(tow_cut, axis=0)[2]  # нижнее отражение от опоры (наивысшая точка)
+            # верхнее отражение от опоры (наивысшая точка)
+            tow_top = np.max(tow_cut, axis=0)[2]
+            # нижнее отражение от опоры (нижняя точка) + 1 метр чтобы исключить фундамент/мусор
+            tow_low = (np.min(tow_cut, axis=0)[2])+1
 
             # начинаем с верхушки опоры
             up_lvl = (tow_top - grd_lvl) * ((100 - up_str) / 100) + grd_lvl
@@ -428,7 +397,7 @@ def find_center(cgtw_g, buf_radius_2, polybuff):
             bot_lvl = (tow_top - tow_low) * (bot_str / 100) + tow_low  # высота части основания от нижнего отражения
             tow_bot = []
             for i in range(len(tow_cut)):
-                if tow_cut[i].z < bot_lvl:
+                if tow_low < tow_cut[i].z < bot_lvl:
                     tow_bot.append(tow_cut[i])  # upper points
             tow_bot = MultiPoint(tow_bot)
 
@@ -439,7 +408,9 @@ def find_center(cgtw_g, buf_radius_2, polybuff):
 
             # теперь уточним высоту на земле, для этого возьмем радиус поуже
             if len(grd_cut) != 0:
-                grd_lvl = z_level_shp(bot_fig.x, bot_fig.y, grd_cut, buf_radius_2)
+                grd_lvl_corr = z_level_shp(bot_fig.x, bot_fig.y, grd_cut, buf_radius_2)
+                if grd_lvl_corr != 0:
+                    grd_lvl = grd_lvl_corr
 
             # итоговые координаты
             cgt = (n_id, round(bot_fig.x, 2), round(bot_fig.y, 2), round(grd_lvl, 2))
@@ -574,4 +545,3 @@ report('записаны выходные файлы: cgtow_corr.txt, tops_corr.
 p_dxf.write_text('  0\nSECTION\n  2\nENTITIES\n' + vert_axes(cgtw_g) + polylines(cgtw_g) + '  0\nENDSEC\n  0\nEOF')
 
 input('расчет завершен, нажмите Enter для выхода')
-raise SystemExit()
