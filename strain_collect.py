@@ -12,7 +12,9 @@ from pathlib import Path
 import pandas as pd
 
 p = Path('D:\\work\\_TP\\for_22\\opten_archive')  # рабочая директория
-fin_file = p / 'all_strains.txt' # финальный текстовый файл с анкерами
+fin_file_strain = p / 'all_strains.txt' # финальный текстовый файл с анкерами
+fin_file_deleted = p / 'strains_to_delete.txt' # финальный текстовый файл с анкерами
+
 global fin_strain_list, fin_delete_list
 fin_strain_list = []
 fin_delete_list = []
@@ -46,8 +48,19 @@ def rename_list(old_strain_list, line_name):
                     new_list.append(i.strip(line_name))
                 else:
                     to_delete.append(i)
+    for x in new_list:
+        if type(x) == int:
+            good_list.append(line_name + ('0' * (4 - len(str(x)))) + str(x))
+        elif x.isdigit():
+            good_list.append(line_name + ('0' * (4 - len(x)) + x))
 
-    return new_list, to_delete
+        else:
+            if x[:-1].isdigit() and not x[-1:].isdigit():
+                good_list.append(line_name + ('0' * (5 - len(x)) + x))
+            else:
+                to_delete.append(x)
+
+    return good_list, to_delete
 
 
 def excel_2002(p_spec, line_name):
@@ -89,7 +102,9 @@ def excel_2003(p_spec, line_name):
     if 'Strain' in spec_tab.index:
         strain_list = list(spec_tab.loc['Strain', 'pole'])
 
-    return strain_list
+    strain_list, to_delete = rename_list(strain_list, line_name)
+
+    return strain_list, to_delete
 
 
 def excel_2007(p_spec, line_name):
@@ -103,9 +118,24 @@ def excel_2007(p_spec, line_name):
     # ! - тут указано с заглавной буквы - возможен пропуск анкеров с маленькой
     if 'Strain' in spec_tab.index:
         strain_list = list(spec_tab.loc['Strain', 'pole'])
+
+    strain_list, to_delete = rename_list(strain_list, line_name)
+
+    return strain_list, to_delete
+
+
+def excel_2015(p_spec):
+    # выборка номеров анкерных опор
+    # в 2015 году всё ок
+    strain_list =[]   # лист с анкерами - будет получен в конце
+    # задаем имена столбцам, читаем только 2 и 8, header не указываем
+    spec_tab = pd.read_excel(p_spec, names=['pole', 'susp'], usecols=[1, 7], index_col=1)
+
+    # из таблицы получаем список анкеров
+    # ! - тут указано с заглавной буквы - возможен пропуск анкеров с маленькой
+    if 'Strain' in spec_tab.index:
+        strain_list = list(spec_tab.loc['Strain', 'pole'])
     return strain_list
-
-
 
 
 def list_collect(line_path):
@@ -114,6 +144,8 @@ def list_collect(line_path):
     print('start list_collect')
     line_name = 'none'
     p_spec = 'none'
+    strain_list = []
+    to_delete =[]
 
     line_id = int(line_path.stem.split(sep='-')[0])  # номер линии 2022
     year = line_path.stem.split(sep='-')[1]  # год предыдущей обработки линии
@@ -136,12 +168,15 @@ def list_collect(line_path):
         input(' - нажмите Enter для выхода - ')
 
     # в зависимости от года съемки выбираем как быть со спецификацией
-    if int(year) > 2006:
+    if int(year) == 2015:
         print('2006 + ')
-        strain_list = excel_2007(p_spec)
+        strain_list = excel_2015(p_spec)
+    elif int(year) > 2003 and int(year) < 2015:
+        print('- 2007-2010 -')
+        strain_list, to_delete = excel_2007(p_spec, line_name)
     elif int(year) == 2003:
-        print('- 2003 -')
-        strain_list = excel_2003(p_spec)
+        print('- 2003 - ')
+        strain_list, to_delete = excel_2003(p_spec, line_name)
     elif int(year) == 2002:
         print('- 2002 -')
         strain_list, to_delete = excel_2002(p_spec, line_name)
@@ -150,14 +185,28 @@ def list_collect(line_path):
         input(' - нажмите Enter для выхода - ')
 
 
-
     for i in strain_list:
         fin_strain_list.append(i)
+    for j in to_delete:
+        fin_delete_list.append(j)
 
 
-list_collect(p / '2202-2002-12')
+# list_collect(p / '2202-2002-12')
+# print(fin_strain_list)
+# print(fin_delete_list)
 
-print(fin_strain_list)
+
+
+for dir in list_of_dirs:
+    list_collect(dir)
+
+with open(fin_file_strain, 'w') as f:
+    for struct in fin_strain_list:
+        f.write(f'{struct}\n')
+
+#fin_strain_list.to_csv(fin_file_strain, sep='\t', mode='a', header=None, na_rep='NA', encoding='utf-8')
+#fin_delete_list.to_csv(fin_file_deleted, sep='\t', mode='a', header=None, na_rep='NA', encoding='utf-8')
+
 
 
 input('well done, press Enter to exit')
