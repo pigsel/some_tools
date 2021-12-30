@@ -14,11 +14,12 @@ import pandas as pd
 p = Path('D:\\work\\_TP\\for_22\\opten_archive')  # рабочая директория
 fin_file_strain = p / 'all_strains.txt' # финальный текстовый файл с анкерами
 fin_file_deleted = p / 'strains_to_delete.txt' # финальный текстовый файл с анкерами
+all22 = p / 'all_22.txt' # все опоры проекта
+
 
 global fin_strain_list, fin_delete_list
 fin_strain_list = []
 fin_delete_list = []
-
 
 
 # читаем таблицу с именами и id номерами
@@ -190,23 +191,23 @@ def list_collect(line_path):
     for j in to_delete:
         fin_delete_list.append(j)
 
-
-# list_collect(p / '2202-2002-12')
-# print(fin_strain_list)
-# print(fin_delete_list)
-
-
-
+# собираем листы с номерами анкеров и отброшенных опор
 for dir in list_of_dirs:
     list_collect(dir)
 
-with open(fin_file_strain, 'w') as f:
-    for struct in fin_strain_list:
+# сохраняем отброшенные в файл
+with open(fin_file_deleted, 'w') as f:
+    for struct in fin_delete_list:
         f.write(f'{struct}\n')
 
-#fin_strain_list.to_csv(fin_file_strain, sep='\t', mode='a', header=None, na_rep='NA', encoding='utf-8')
-#fin_delete_list.to_csv(fin_file_deleted, sep='\t', mode='a', header=None, na_rep='NA', encoding='utf-8')
+# открываем таблицу со всеми опорами проекта и мержим с таблицей из полученного листа
+full_tab = pd.read_csv(all22, sep='\t', index_col=0, header=0)
+str_tab = pd.DataFrame(fin_strain_list, index = fin_strain_list, columns = ['id'])
+fin_tab = pd.merge(full_tab, str_tab, left_index=True, right_index=True)
+fin_tab = fin_tab[['x', 'y', 'z']]   # удаляем лишний столбец
 
+# сохраняем табличку
+fin_tab.to_csv(fin_file_strain, sep='\t', mode='w', index_label='id', encoding='utf-8')
 
 
 input('well done, press Enter to exit')
