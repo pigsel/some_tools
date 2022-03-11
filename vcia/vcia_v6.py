@@ -24,8 +24,9 @@ import openpyxl
 from math import sqrt
 
 # paths to files
-p = Path(r'D:\work\_TP\test\vcia\qgis')  #work dir
-p_str = p / '634_cgtow.pts'
+p = Path(r'D:\work\_TP\test\vcia\635')  #work dir
+p_str = p / '635_BLN-KIK-A_cgtow.pts'
+spec = p / '635_BLN-KIK-A_Specification_St1.xlsx'
 
 
 def centerline(p_str):
@@ -57,11 +58,29 @@ def centerline(p_str):
 
     return str
 
-li_str = centerline(p_str)
-print(li_str[0])
 
-li_str[0].append(9999)
-print(li_str[0])
+def spec_id(spec):
+    # reading specification and save work and id names of structures
+    id_tows = []  # creating list * work id, id *
+    wb = openpyxl.load_workbook(spec)
+    sheet = wb.active
+
+    for cn in range(3, sheet.max_row):   ## cn - cell number
+        if sheet['A' + (str(cn))].value != sheet['A' + (str(cn + 1))].value:
+            if isinstance(sheet['A' + (str(cn))].value, int):
+                id_tows.append([int(sheet['A' + (str(cn))].value), str(sheet['B' + (str(cn))].value)])
+        else:
+            break
+
+    return id_tows
+
+
+ids = spec_id(spec)
+print(ids[:4])
+print(ids[-4:])
+
+
+
 
 
 # TODO - чтение спецификации - добавление ид-номеров опор
