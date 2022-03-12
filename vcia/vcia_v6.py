@@ -29,6 +29,7 @@ p_str = p / '635_BLN-KIK-A_cgtow.pts'
 spec = p / '635_BLN-KIK-A_Specification_St1.xlsx'
 
 
+
 def centerline(p_str):
     # чтение файла координат опор c рабочей нумерацией и запись его в лист c с удалением дубликатов
     str = []  # list of structures
@@ -61,32 +62,62 @@ def centerline(p_str):
 
 def spec_id(spec):
     # reading specification and save work and id names of structures
-    id_tows = []  # creating list * work id, id *
+    id_tows = []  # creating list * work id, id , num of cline *
+    cline_num = 1   # number of cline
     wb = openpyxl.load_workbook(spec)
     sheet = wb.active
 
     for cn in range(3, sheet.max_row):   ## cn - cell number
         if sheet['A' + (str(cn))].value != sheet['A' + (str(cn + 1))].value:
             if isinstance(sheet['A' + (str(cn))].value, int):
-                id_tows.append([int(sheet['A' + (str(cn))].value), str(sheet['B' + (str(cn))].value)])
+                id_tows.append([int(sheet['A' + (str(cn))].value), str(sheet['B' + (str(cn))].value), cline_num])
+            else:
+                cline_num += 1   # change cline num after empty stroke in spec
         else:
             break
 
     return id_tows
 
 
-ids = spec_id(spec)
-print(ids[:4])
-print(ids[-4:])
+def notgabread(p):
+    # read notgab files and creat tab without duplicate points and with num of cline
+
+    notgabfiles = list(p.glob('*gabarit*.txt'))    # list of input files
+    ngtab = []    # table of notgabs
+
+    for file in notgabfiles:
+        cline_num = file.stem.split('_')[-1]    # number of cline is the end of filename
+
+        with open(file) as ngfile:
+            ngtab.append(ngfile.readline().strip('\n').split())    # first line - add it separately
+            ngtab[-1].append(cline_num)    # add cline number to the first stroke
+            for line in ngfile:
+                stroka = line.strip('\n').split()
+                stroka.append(cline_num)   # add cline number
+                if stroka[0] == ngtab[-1][0]:
+                    # check if same span has same gab point
+                    tr = 0   # number of try
+                    for pt in range(len(ngtab)):
+                        if (stroka[3], stroka[4], stroka[5]) == (ngtab[pt][3], ngtab[pt][4], ngtab[pt][5]):
+                            # if all coords the same
+                            if stroka[2] < ngtab[pt][2]:
+                                # check which one is smaller and keep it
+                                ngtab[pt] = stroka
+                        else:
+                            tr += 1
+                            if tr == len(ngtab):
+                                # when we read all list and did not find same - take this
+                                ngtab.append(stroka)
+                else:
+                    ngtab.append(stroka)
+
+    return ngtab
 
 
 
 
-
-# TODO - чтение спецификации - добавление ид-номеров опор
-# TODO - разбиение на центрлайны (создать лист последовательностей опор - из спецификации)
-# TODO - чтение файлов негабаритов - создание таблицы
-# TODO - вывод таблицы негабаритов в xls
+# TODO - формат и расчет таблицы негабаритов
+# TODO - вывод таблицы негабаритов в xlsx
 # TODO - интерфейс
 # TODO - таблица под qgis - пролеты с негабаритами, негабаритные точки, длины пролетов
 # TODO - добавить обрезку длинных пролетов
