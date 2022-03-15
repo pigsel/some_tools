@@ -7,7 +7,7 @@ for python 3
 программа для расчета таблицы негабаритов и подготовки данных для QGIS
 
 на вход файлы
-- not gabarit.txt - насчитанные террасканом
+- not_gabarit_1.txt - насчитанные террасканом
 - stow.pts
 - имя_линии_specification.xlsx (XLSX ! - спецификация)
 
@@ -61,7 +61,7 @@ def centerline(p_str):
 
 
 def spec_id(spec):
-    # reading specification and save work and id names of structures
+    # reading xlsx specification and save work and id names of structures in list
     id_tows = []  # creating list * work id, id , num of cline *
     cline_num = 1   # number of cline
     wb = openpyxl.load_workbook(spec)
@@ -80,13 +80,14 @@ def spec_id(spec):
 
 
 def notgabread(p):
-    # read notgab files and creat tab without duplicate points and with num of cline
+    # read notgab files and create tab without duplicate points and with num of cline
+    # exit tab has 7 columns: span num (work ts), wire num, gab, x, y, z, num of cline.
 
     notgabfiles = list(p.glob('*gabarit*.txt'))    # list of input files
     ngtab = []    # table of notgabs
 
     for file in notgabfiles:
-        cline_num = file.stem.split('_')[-1]    # number of cline is the end of filename
+        cline_num = file.stem.split('_')[-1]   # number of cline is the end of filename
 
         with open(file) as ngfile:
             ngtab.append(ngfile.readline().strip('\n').split())    # first line - add it separately
@@ -114,6 +115,42 @@ def notgabread(p):
     return ngtab
 
 
+
+def idspannames(id_tows, ngtab):
+    # in ngtab we should add span names with work and real IDs
+
+    for st in range(len(ngtab)):
+        # first we found start of cline num
+        tsn = int(ngtab[st][0])   # terrascan span num
+        cn = int(ngtab[st][6])   # num of cline
+        start_cn = 100000
+        for str in range(len(id_tows)):
+            if id_tows[str][2] == cn:
+                if id_tows[str][0] < start_cn:
+                    start_cn = id_tows[str][0]   # start of this cline
+
+        wid = start_cn + tsn   # now we know work ID
+        id_st, id_fin = '-', '-'   # start and finish ID names
+
+        for str2 in range(len(id_tows)):
+            # then found ID names
+            if id_tows[str2][0] == wid:
+                id_st = id_tows[str2][1]
+                id_fin= id_tows[str2+1][1]
+
+        # then add work_id, start_id and finish_ID to our table
+        for a in [wid, id_st, id_fin]: ngtab[st].append(a)
+
+    return ngtab
+
+
+id_tows = spec_id(spec)
+ngtab = notgabread(p)
+
+new_tab = idspannames(id_tows, ngtab)
+
+for i in range(len(new_tab)):
+    print(new_tab[i])
 
 
 # TODO - формат и расчет таблицы негабаритов
