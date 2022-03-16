@@ -29,11 +29,10 @@ p_str = p / '635_BLN-KIK-A_cgtow.pts'
 spec = p / '635_BLN-KIK-A_Specification_St1.xlsx'
 
 
-
-def centerline(p_str):
+def centerline(path_str):
     # чтение файла координат опор c рабочей нумерацией и запись его в лист c с удалением дубликатов
     str = []  # list of structures
-    with open(p_str) as ffile:
+    with open(path_str) as ffile:
         for line in ffile:
             stroka = line.strip('\n').split()
             # ctow file should contain work-id, x, y, z in each row
@@ -55,16 +54,15 @@ def centerline(p_str):
                 print('ctow file error')
 
     print(f'загружено опор: {len(str)}')
-    #print(str)
 
     return str
 
 
-def spec_id(spec):
+def spec_id(specification):
     # reading xlsx specification and save work and id names of structures in list
     id_tows = []  # creating list * work id, id , num of cline *
     cline_num = 1   # number of cline
-    wb = openpyxl.load_workbook(spec)
+    wb = openpyxl.load_workbook(specification)
     sheet = wb.active
 
     for cn in range(3, sheet.max_row):   ## cn - cell number
@@ -79,11 +77,11 @@ def spec_id(spec):
     return id_tows
 
 
-def notgabread(p):
+def notgabread(path_to_folder):
     # read notgab files and create tab without duplicate points and with num of cline
     # exit tab has 7 columns: span num (work ts), wire num, gab, x, y, z, num of cline.
 
-    notgabfiles = list(p.glob('*gabarit*.txt'))    # list of input files
+    notgabfiles = list(path_to_folder.glob('*gabarit*.txt'))    # list of input files
     ngtab = []    # table of notgabs
 
     for file in notgabfiles:
@@ -115,39 +113,58 @@ def notgabread(p):
     return ngtab
 
 
-
-def idspannames(id_tows, ngtab):
+def idspannames(ids, notgabtab):
     # in ngtab we should add span names with work and real IDs
 
-    for st in range(len(ngtab)):
+    for st in range(len(notgabtab)):
         # first we found start of cline num
-        tsn = int(ngtab[st][0])   # terrascan span num
-        cn = int(ngtab[st][6])   # num of cline
+        tsn = int(notgabtab[st][0])   # terrascan span num
+        cn = int(notgabtab[st][6])   # num of cline
         start_cn = 100000
-        for str in range(len(id_tows)):
-            if id_tows[str][2] == cn:
-                if id_tows[str][0] < start_cn:
-                    start_cn = id_tows[str][0]   # start of this cline
+        for str in range(len(ids)):
+            if ids[str][2] == cn:
+                if ids[str][0] < start_cn:
+                    start_cn = ids[str][0]   # start of this cline
 
         wid = start_cn + tsn   # now we know work ID
         id_st, id_fin = '-', '-'   # start and finish ID names
 
-        for str2 in range(len(id_tows)):
+        for str2 in range(len(ids)):
             # then found ID names
-            if id_tows[str2][0] == wid:
-                id_st = id_tows[str2][1]
-                id_fin= id_tows[str2+1][1]
+            if ids[str2][0] == wid:
+                id_st = ids[str2][1]
+                id_fin= ids[str2 + 1][1]
 
         # then add work_id, start_id and finish_ID to our table
-        for a in [wid, id_st, id_fin]: ngtab[st].append(a)
+        for a in [wid, id_st, id_fin]: notgabtab[st].append(a)
 
-    return ngtab
+    return notgabtab
 
 
-id_tows = spec_id(spec)
-ngtab = notgabread(p)
+def calc_h_of_triangle(a, b, c):
+    # calc h of triangle
+    # if we have triangle with vertices a, b, c
+    # then we need to find h - which is start from c and is perpendicular to ab
+    # to find it we will use formula:
+    # (1) h=2*S/A  where s - area of triangle, A - length of side of triangle (ab in our case)
+    # to find S we will use formula: (2) ((xb-xa)*(yc-ya)-(xc-xa)*(yb-ya))/2
+    # then use (2) in (1) and have final formula:
+    # (3) h = ((xb-xa)*(yc-ya)-(xc-xa)*(yb-ya))/ab
+    # ! warning ! in south hemisphere we should use '-' before result,
+    # as coordinates goes opposite direction than in north hemisphere
 
-new_tab = idspannames(id_tows, ngtab)
+    x1, y1 = a[0], a[1]
+    x2, y2 = b[0], b[1]
+    x0, y0 = c[0], c[1]
+    ab = sqrt((x1-x2)**2+(y1-y2)**2)
+    h = ((x2-x1)*(y0-y1)-(x0-x1)*(y2-y1))/ab
+    return h
+
+
+id = spec_id(spec)
+ng_tab = notgabread(p)
+
+new_tab = idspannames(id, ng_tab)
 
 for i in range(len(new_tab)):
     print(new_tab[i])
