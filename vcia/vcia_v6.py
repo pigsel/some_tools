@@ -27,6 +27,9 @@ from math import sqrt
 p = Path(r'D:\work\_TP\test\vcia\635')  #work dir
 p_str = p / '635_BLN-KIK-A_cgtow.pts'
 spec = p / '635_BLN-KIK-A_Specification_St1.xlsx'
+logo = p / 'logo.png'    # обработать
+
+line_name = spec.stem.split('_')[1]   # line name from specification name
 
 
 def centerline(path_str):
@@ -178,9 +181,189 @@ def filltab(tab, str_coords):
                 c = tab[span][3:5]
                 l, offs, station = calc_h_of_triangle(a, b, c)
                 image_name = f'{tab[span][8]}_{tab[span][9]}.jpg'
-                for a in [l, station, offs, image_name]: tab[span].append(a)
+                for a in [l, station, offs, image_name]:
+                    tab[span].append(a)
 
     return tab
+
+
+def excel_export(tab):
+    # create excel tab
+
+    wb = openpyxl.Workbook()
+    sheet = wb.active
+
+    sheet.title = line_name
+
+    ### looking for logo and place it
+    if logo == 'нет !':
+        None
+    else:
+        img = openpyxl.drawing.image.Image(logo)
+        sheet.add_image(img, 'F2')
+
+
+    ### fill the file
+    sheet['A2'] = 'Line name:'
+    sheet['B2'] = line_name
+    sheet['A3'] = 'Date of survey:'
+
+    sheet.freeze_panes = 'C7'
+    sheet.sheet_view.zoomScale = 90
+
+    sheet.merge_cells('A5:A6')
+    sheet['A5'] = 'From tower'
+    sheet.merge_cells('B5:B6')
+    sheet['B5'] = 'To tower'
+    sheet.merge_cells('C5:C6')
+    sheet['C5'] = 'Span length, m'
+    sheet.merge_cells('D5:D6')
+    sheet['D5'] = 'Conductor Temperature, ºС'
+    sheet.merge_cells('E5:E6')
+    sheet['E5'] = 'Clearance to infringing tree, m'
+    sheet.merge_cells('F5:G5')
+    sheet['F5'] = 'Infringing tree location'
+    sheet['F6'] = 'Station, m'
+    sheet['G6'] = 'Offset, m'
+    sheet.merge_cells('H5:H6')
+    sheet['H5'] = 'Photography Number'
+
+    for ce in range(len(tab)):
+        sheet[str('A' + str(int(7 + ce)))] = tab[ce][8]
+        sheet[str('B' + str(int(7 + ce)))] = tab[ce][9]
+        sheet[str('C' + str(int(7 + ce)))] = tab[ce][10]
+        sheet[str('E' + str(int(7 + ce)))] = float(tab[ce][2])
+        sheet[str('F' + str(int(7 + ce)))] = tab[ce][11]
+        sheet[str('G' + str(int(7 + ce)))] = tab[ce][12]
+        sheet[str('H' + str(int(7 + ce)))] = tab[ce][13]
+
+    ### a little bit of style
+    from openpyxl.styles import Border, Side, Alignment, Font
+
+    font1 = Font(name='Arial', size=12)
+    font1b = Font(name='Arial', size=12, bold=True)
+    font2 = Font(name='Arial', size=10, bold=True)
+    font3 = Font(name='Arial', size=10)
+
+    align1 = Alignment(horizontal='center', vertical='center', wrap_text=True)
+
+    bold_left = Border(left=Side(style='medium'),
+                       right=Side(style='thin'),
+                       top=Side(style='medium'),
+                       bottom=Side(style='medium'))
+
+    bold_right = Border(left=Side(style='thin'),
+                        right=Side(style='medium'),
+                        top=Side(style='medium'),
+                        bottom=Side(style='medium'))
+
+    bold_mid = Border(left=Side(style='thin'),
+                      right=Side(style='thin'),
+                      top=Side(style='medium'),
+                      bottom=Side(style='medium'))
+
+    bold_top_mid = Border(left=Side(style='thin'),
+                          right=Side(style='thin'),
+                          top=Side(style='medium'),
+                          bottom=Side(style='thin'))
+
+    bold_bot_mid = Border(left=Side(style='thin'),
+                          right=Side(style='thin'),
+                          top=Side(style='thin'),
+                          bottom=Side(style='medium'))
+
+    bold_mid_left = Border(left=Side(style='medium'),
+                           right=Side(style='thin'),
+                           top=Side(style='thin'),
+                           bottom=Side(style='thin'))
+
+    bold_mid_right = Border(left=Side(style='thin'),
+                            right=Side(style='medium'),
+                            top=Side(style='thin'),
+                            bottom=Side(style='thin'))
+
+    bold_left_bot = Border(left=Side(style='medium'),
+                           right=Side(style='thin'),
+                           top=Side(style='thin'),
+                           bottom=Side(style='medium'))
+
+    bold_right_bot = Border(left=Side(style='thin'),
+                            right=Side(style='medium'),
+                            top=Side(style='thin'),
+                            bottom=Side(style='medium'))
+
+    thin_border = Border(left=Side(style='thin'),
+                         right=Side(style='thin'),
+                         top=Side(style='thin'),
+                         bottom=Side(style='thin'))
+
+    sheet.column_dimensions['A'].width = 20
+    sheet.column_dimensions['B'].width = 20
+    sheet.column_dimensions['C'].width = 10
+    sheet.column_dimensions['D'].width = 13
+    sheet.column_dimensions['E'].width = 13
+    sheet.column_dimensions['F'].width = 13
+    sheet.column_dimensions['G'].width = 13
+    sheet.column_dimensions['H'].width = 40
+    sheet.row_dimensions[5].height = 30
+    # sheet.row_dimensions[6].height = 15
+
+    sheet['A2'].font = font1
+    sheet['B2'].font = font1b
+    sheet['A3'].font = font1
+
+    sheet['A5'].border = bold_left
+    sheet['A6'].border = bold_left
+    sheet['B5'].border = bold_mid
+    sheet['B6'].border = bold_mid
+    sheet['C5'].border = bold_mid
+    sheet['C6'].border = bold_mid
+    sheet['D5'].border = bold_mid
+    sheet['D6'].border = bold_mid
+    sheet['E5'].border = bold_mid
+    sheet['E6'].border = bold_mid
+    sheet['F5'].border = bold_top_mid
+    sheet['F6'].border = bold_bot_mid
+    sheet['G5'].border = bold_top_mid
+    sheet['G6'].border = bold_bot_mid
+    sheet['H5'].border = bold_right
+    sheet['H6'].border = bold_right
+
+    for row in sheet['A5':'H6']:
+        for cell in row:
+            cell.alignment = align1
+            cell.font = font2
+
+    for row in sheet['A7':str('H' + str(len(tab) + 6))]:
+        for cell in row:
+            cell.alignment = align1
+            cell.font = font3
+            cell.border = thin_border
+
+    for col in sheet['C7':str('C' + str(len(tab) + 6))]:
+        for cell in col:
+            cell.number_format = '0.00'
+
+    for col in sheet['E7':str('G' + str(len(tab) + 6))]:
+        for cell in col:
+            cell.number_format = '0.00'
+
+    for col in sheet['A7':str('A' + str(len(tab) + 5))]:
+        for cell in col:
+            cell.border = bold_mid_left
+
+    for col in sheet['H7':str('H' + str(len(tab) + 5))]:
+        for cell in col:
+            cell.border = bold_mid_right
+
+    for row in sheet[str('B' + str(len(tab) + 6)):str('G' + str(len(tab) + 6))]:
+        for cell in row:
+            cell.border = bold_bot_mid
+
+    sheet[str('A' + str(len(tab) + 6))].border = bold_left_bot
+    sheet[str('H' + str(len(tab) + 6))].border = bold_right_bot
+
+    wb.save(p / str('out_vcia/' + line_name + '_VCIA_Report_v01.xlsx'))
 
 
 s_coo = centerline(p_str)
@@ -190,17 +373,11 @@ ng_tab2 = idspannames(ids, ng_tab)    # add id names to ngtab (v2)
 ng_tab3 = filltab(ng_tab2, s_coo)    # add calcs (v3)
 
 for i in range(len(ng_tab3)):
-    print(ng_tab2[i])
+    print(ng_tab3[i])
+
+excel_export(ng_tab3)
 
 
-
-
-
-
-
-
-# TODO - формат и расчет таблицы негабаритов
-# TODO - вывод таблицы негабаритов в xlsx
 # TODO - интерфейс
 # TODO - таблица под qgis - пролеты с негабаритами, негабаритные точки, длины пролетов
 # TODO - добавить обрезку длинных пролетов
