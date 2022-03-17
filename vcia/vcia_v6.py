@@ -155,19 +155,48 @@ def calc_h_of_triangle(a, b, c):
 
     x1, y1 = a[0], a[1]
     x2, y2 = b[0], b[1]
-    x0, y0 = c[0], c[1]
-    ab = sqrt((x1-x2)**2+(y1-y2)**2)
-    h = ((x2-x1)*(y0-y1)-(x0-x1)*(y2-y1))/ab
-    return h
+    x0, y0 = float(c[0]), float(c[1])
+    len = round(sqrt((x2-x1)**2+(y2-y1)**2), 2)
+    h = round((((x2-x1)*(y0-y1)-(x0-x1)*(y2-y1)) / len), 2)
+    off = round(sqrt(((x0-x1)**2+(y0-y1)**2)-h**2), 2)
+    return len, -h, off
 
 
-id = spec_id(spec)
-ng_tab = notgabread(p)
+def filltab(tab, str_coords):
+    # now ngtab v2 has 10 columns:
+    # (1) ts span name; (2) wire num; (3) 3d dist to ngab; (4,5,6) x,y,z of ngab point; (7) cline num;
+    # (8) work id start span; (9) id span start; (10) id span end
+    # here we add new columns: (11) span length; (12) station; (13) offset; (14) image name
+    for span in range(len(tab)):
+        # a = []    #span start coords (x, y)
+        # b = []    #span end coords (x, y)
+        # c = []    #ngab coords (x, y)
+        for struct in range(len(str_coords)):
+            if tab[span][7] == str_coords[struct][0]:
+                a = str_coords[struct][1:3]
+                b = str_coords[struct+1][1:3]
+                c = tab[span][3:5]
+                l, offs, station = calc_h_of_triangle(a, b, c)
+                image_name = f'{tab[span][8]}_{tab[span][9]}.jpg'
+                for a in [l, station, offs, image_name]: tab[span].append(a)
 
-new_tab = idspannames(id, ng_tab)
+    return tab
 
-for i in range(len(new_tab)):
-    print(new_tab[i])
+
+s_coo = centerline(p_str)
+ids = spec_id(spec)   # get ids
+ng_tab = notgabread(p)   # get ngtab (v1)
+ng_tab2 = idspannames(ids, ng_tab)    # add id names to ngtab (v2)
+ng_tab3 = filltab(ng_tab2, s_coo)    # add calcs (v3)
+
+for i in range(len(ng_tab3)):
+    print(ng_tab2[i])
+
+
+
+
+
+
 
 
 # TODO - формат и расчет таблицы негабаритов
