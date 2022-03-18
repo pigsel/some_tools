@@ -294,12 +294,12 @@ proj_var = tk.StringVar(f1)  # for project choose menu
 proj_var.set(proj_k[0])   # default project 
 
 # label on top that pts -> PLSCADD chosen (first page)
-l_head1 = tk.Label(f1, text=" pts -> PLSCADD ", font="Veranda 14", width=35, heigh=2)
+l_head1 = tk.Label(f1, text=" pts -> PLSCADD ", font="Veranda 14", width=35, height=2)
 l_head1.grid(row=0, column=0, columnspan=2, sticky='we')
 
 # button to choose second page 
 button_to2 = tk.Button(f1, text=" PLSCADD -> pts", bd=0, bg='grey', font="Veranda 14",
-                       activebackground='yellow', width=35, heigh=2, command=lambda:raise_frame(f2))
+                       activebackground='yellow', width=35, height=2, command=lambda:raise_frame(f2))
 button_to2.grid(row=0, column=2, columnspan=2, sticky='we')
 
 #  label 
@@ -344,7 +344,7 @@ button_run = tk.Button(f1, text="Запуск", command=run_app, bd=0, bg='light
 button_run.grid(row=4, column=3, sticky='w'+'e', pady=20, padx=15)
 
 # text window
-t_info = tk.Text(f1, font="Veranda 10", bg='white', relief='sunken', heigh=10, padx=20)
+t_info = tk.Text(f1, font="Veranda 10", bg='white', relief='sunken', height=10, padx=20)
 t_info.grid(row=5, column=0, columnspan=4, pady=20, padx=15, sticky='we')
 scroll = tk.Scrollbar(f1, command=t_info.yview)
 scroll.grid(row=5, pady=20, padx=15, column=3, sticky='enes')
@@ -368,12 +368,12 @@ path_xls.insert(0, 'нет')
 # FRAME 2 - f2 = PLS -> pts ---------------------------
 
 # label on top that pts -> PLSCADD chosen (first page)
-l_head2 = tk.Label(f2, text=" PLSCADD -> pts ", font="Veranda 14", width=35, heigh=2)
+l_head2 = tk.Label(f2, text=" PLSCADD -> pts ", font="Veranda 14", width=35, height=2)
 l_head2.grid(row=0, column=2, columnspan=2, sticky='we')
 
 # button to choose second page
 button_to1 = tk.Button(f2, text=" pts -> PLSCADD ", bd=0, bg='grey', font="Veranda 14",
-                       activebackground='yellow', width=35, heigh=2, command=lambda: raise_frame(f1))
+                       activebackground='yellow', width=35, height=2, command=lambda: raise_frame(f1))
 button_to1.grid(row=0, column=0, columnspan=2, sticky='we')
 
 #  label
@@ -423,7 +423,7 @@ button_run.grid(row=6, column=3, sticky='we', pady=20, padx=15)
 
 
 # text window
-t2_info = tk.Text(f2, font="Veranda 10", bg='white', relief='sunken', heigh=10, padx=20)
+t2_info = tk.Text(f2, font="Veranda 10", bg='white', relief='sunken', height=10, padx=20)
 t2_info.grid(row=7, column=0, columnspan=4, pady=20, padx=15, sticky='we')
 scroll2 = tk.Scrollbar(f2, command=t2_info.yview)
 scroll2.grid(row=7, pady=20, padx=15, column=3, sticky='enes')

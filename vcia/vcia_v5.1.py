@@ -34,8 +34,8 @@ for file in os.listdir('.'):
     if fnmatch.fnmatch(file, '*logo*'):    #finding cgtow file
         logo = file              
 
-#####  вступительная речь, интервью, интерфейс 
 
+#  вступительная речь, интервью, интерфейс
 print('\nпривет! поработаем?\n ')
 print('найдены файлы негабаритов на вход:') 
 print('\n'.join(fz))
@@ -67,9 +67,7 @@ if vr == 1:
     if logo == 'нет !':
         print('\nне найден логотип, выходная таблица будет рассчитана без него')
         input('нажмите Enter для продолжения')
-        None
-    else:
-        None
+
 elif vr == 2:
     quit()
 else:

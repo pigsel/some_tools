@@ -24,12 +24,89 @@ import openpyxl
 from math import sqrt
 
 # paths to files
-p = Path(r'D:\work\_TP\test\vcia\635')  #work dir
-p_str = p / '635_BLN-KIK-A_cgtow.pts'
-spec = p / '635_BLN-KIK-A_Specification_St1.xlsx'
-logo = p / 'logo.png'    # обработать
+# p_str = p / '635_BLN-KIK-A_cgtow.pts'
+# spec = p / '635_BLN-KIK-A_Specification_St1.xlsx'
+# logo = p / 'logo.png'    # обработать
 
-line_name = spec.stem.split('_')[1]   # line name from specification name
+p = Path.cwd()  # work dir
+
+
+def filecollect():
+    # collect all the files we need
+
+    ng_fz = list(p.glob('*not_gabarit*.txt'))   # fulling list of not gabarit files
+
+    ctow_file = list(p.glob('*tow.pts'))
+    if len(ctow_file) == 1:
+        ctow_file = ctow_file[0]
+    else:
+        ctow_file = 'error'
+
+    spec_file = list(p.glob('*pecifica*.xlsx'))
+    if len(spec_file) == 1:
+        spec_file = spec_file[0]
+    else:
+        spec_file = 'error'
+
+    if Path(p / 'logo.png').exists():
+        logo_file = p / 'logo.png'
+    else:
+        logo_file = 'нет !'
+
+    return ng_fz, ctow_file, spec_file, logo_file
+
+
+##### looking for files ######
+#
+# for file in os.listdir('.'):
+#     if fnmatch.fnmatch(file, '*not_gabarit*.txt'):  # fulling list of not gabarit files
+#         fz.append(file)
+#     if fnmatch.fnmatch(file, '*tow*.pts'):  # finding cgtow file
+#         ctow = file
+#     if fnmatch.fnmatch(file, '*pecifica*.xlsx'):  # finding cgtow file
+#         spec = file
+#     if fnmatch.fnmatch(file, '*logo*'):  # finding cgtow file
+#         logo = file
+
+
+def iface():
+    #  вступительная речь, интервью, интерфейс
+    print('\nпривет! поработаем?\n ')
+    print('найдены файлы негабаритов на вход:')
+    print('\n'.join(fz))
+    print('координаты опор: ', ctow)
+    print('Specification: ', spec)
+    print('логотип для таблицы: ', logo)
+    print('\nдалее будет произведен расчет, ')
+    print('чтобы продолжить нажмите 1, чтобы выйти нажмите 2\n')
+
+    vr = 0
+    while vr not in range(1, 3):
+        try:
+            vr = int(input('введите 1 или 2 и нажмите Enter: '))
+        except ValueError:
+            print('не похоже на цифры')
+        if vr not in range(1, 5):
+            print('надо выбрать 1 или 2!')
+
+    if vr == 1:
+        if len(fz) < 1:
+            input('\nне найдены файлы *not_gabarit*, программа будет закрыта')
+            quit()
+        if ctow == 'нет !':
+            input('\nне найден файл *ctow*, программа будет закрыта')
+            quit()
+        if spec == 'нет !':
+            input('\nне найден файл *Specification*, программа будет закрыта')
+            quit()
+        if logo == 'нет !':
+            print('\nне найден логотип, выходная таблица будет рассчитана без него')
+            input('нажмите Enter для продолжения')
+
+    elif vr == 2:
+        quit()
+    else:
+        print('number error')
 
 
 def centerline(path_str):
@@ -366,16 +443,23 @@ def excel_export(tab):
     wb.save(p / str('out_vcia/' + line_name + '_VCIA_Report_v01.xlsx'))
 
 
-s_coo = centerline(p_str)
-ids = spec_id(spec)   # get ids
-ng_tab = notgabread(p)   # get ngtab (v1)
-ng_tab2 = idspannames(ids, ng_tab)    # add id names to ngtab (v2)
-ng_tab3 = filltab(ng_tab2, s_coo)    # add calcs (v3)
+print(filecollect())
 
-for i in range(len(ng_tab3)):
-    print(ng_tab3[i])
 
-excel_export(ng_tab3)
+#
+# line_name = spec.stem.split('_')[1]   # line name from specification name
+#
+#
+# s_coo = centerline(p_str)
+# ids = spec_id(spec)   # get ids
+# ng_tab = notgabread(p)   # get ngtab (v1)
+# ng_tab2 = idspannames(ids, ng_tab)    # add id names to ngtab (v2)
+# ng_tab3 = filltab(ng_tab2, s_coo)    # add calcs (v3)
+#
+# for i in range(len(ng_tab3)):
+#     print(ng_tab3[i])
+#
+# excel_export(ng_tab3)
 
 
 # TODO - интерфейс
