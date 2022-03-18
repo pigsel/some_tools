@@ -23,28 +23,29 @@ from pathlib import Path
 import openpyxl
 from math import sqrt
 
-# paths to files
-# p_str = p / '635_BLN-KIK-A_cgtow.pts'
-# spec = p / '635_BLN-KIK-A_Specification_St1.xlsx'
-# logo = p / 'logo.png'    # обработать
-
 p = Path.cwd()  # work dir
 
 
 def filecollect():
     # collect all the files we need
 
-    ng_fz = list(p.glob('*not_gabarit*.txt'))   # fulling list of not gabarit files
+    ng_fz = sorted(p.glob('*not_gabarit*.txt'))   # filling list of not_gab files
 
+    # get all files using mask and if there are more than 1 writing error
+    # if there are no files - name it 'no_file'
     ctow_file = list(p.glob('*tow.pts'))
     if len(ctow_file) == 1:
         ctow_file = ctow_file[0]
+    elif len(ctow_file) == 0:
+        ctow_file = 'no_file'
     else:
         ctow_file = 'error'
 
     spec_file = list(p.glob('*pecifica*.xlsx'))
     if len(spec_file) == 1:
         spec_file = spec_file[0]
+    elif len(spec_file) == 0:
+        spec_file = 'no_file'
     else:
         spec_file = 'error'
 
@@ -56,27 +57,29 @@ def filecollect():
     return ng_fz, ctow_file, spec_file, logo_file
 
 
-##### looking for files ######
-#
-# for file in os.listdir('.'):
-#     if fnmatch.fnmatch(file, '*not_gabarit*.txt'):  # fulling list of not gabarit files
-#         fz.append(file)
-#     if fnmatch.fnmatch(file, '*tow*.pts'):  # finding cgtow file
-#         ctow = file
-#     if fnmatch.fnmatch(file, '*pecifica*.xlsx'):  # finding cgtow file
-#         spec = file
-#     if fnmatch.fnmatch(file, '*logo*'):  # finding cgtow file
-#         logo = file
-
-
 def iface():
     #  вступительная речь, интервью, интерфейс
     print('\nпривет! поработаем?\n ')
     print('найдены файлы негабаритов на вход:')
-    print('\n'.join(fz))
-    print('координаты опор: ', ctow)
-    print('Specification: ', spec)
-    print('логотип для таблицы: ', logo)
+    for f in fz:
+        print(f'\t- {f.name}')
+
+    if ctow == 'error':
+        print('! - ошибка поиска файла *ctow* - найдено больше одного файла')
+    elif ctow == 'no_file':
+        print('! - ошибка поиска файла *ctow* - файл не найден')
+    else:
+        print(f'файл координат опор: \n\t- {ctow.name}')
+
+    if spec == 'error':
+        print('! - ошибка поиска файла Specification - найдено больше одного файла')
+    elif spec == 'no_file':
+        print('! - ошибка поиска файла Specification - файл не найден')
+        print('! - файл должен быть сохранен как .xlsx !')
+    else:
+        print(f'Specification: \n\t- {spec.name}')
+
+    print(f'логотип для таблицы: \n\t- logo.png')
     print('\nдалее будет произведен расчет, ')
     print('чтобы продолжить нажмите 1, чтобы выйти нажмите 2\n')
 
@@ -91,16 +94,16 @@ def iface():
 
     if vr == 1:
         if len(fz) < 1:
-            input('\nне найдены файлы *not_gabarit*, программа будет закрыта')
+            input('\n! - не найдены файлы *not_gabarit*, программа будет закрыта')
             quit()
-        if ctow == 'нет !':
-            input('\nне найден файл *ctow*, программа будет закрыта')
+        if ctow == 'error' or ctow == 'no_file':
+            input('\n! - ошибка поиска файла *ctow*, программа будет закрыта')
             quit()
-        if spec == 'нет !':
-            input('\nне найден файл *Specification*, программа будет закрыта')
+        if spec == 'error' or spec == 'no_file':
+            input('\n! - не найден файл *Specification*, программа будет закрыта')
             quit()
         if logo == 'нет !':
-            print('\nне найден логотип, выходная таблица будет рассчитана без него')
+            print('\n! - не найден логотип, выходная таблица будет рассчитана без него')
             input('нажмите Enter для продолжения')
 
     elif vr == 2:
@@ -157,14 +160,13 @@ def spec_id(specification):
     return id_tows
 
 
-def notgabread(path_to_folder):
+def notgabread(list_of_files):
     # read notgab files and create tab without duplicate points and with num of cline
     # exit tab has 7 columns: span num (work ts), wire num, gab, x, y, z, num of cline.
 
-    notgabfiles = list(path_to_folder.glob('*gabarit*.txt'))    # list of input files
     ngtab = []    # table of notgabs
 
-    for file in notgabfiles:
+    for file in list_of_files:
         cline_num = file.stem.split('_')[-1]   # number of cline is the end of filename
 
         with open(file) as ngfile:
@@ -273,9 +275,7 @@ def excel_export(tab):
     sheet.title = line_name
 
     ### looking for logo and place it
-    if logo == 'нет !':
-        None
-    else:
+    if logo != 'нет !':
         img = openpyxl.drawing.image.Image(logo)
         sheet.add_image(img, 'F2')
 
@@ -440,28 +440,31 @@ def excel_export(tab):
     sheet[str('A' + str(len(tab) + 6))].border = bold_left_bot
     sheet[str('H' + str(len(tab) + 6))].border = bold_right_bot
 
-    wb.save(p / str('out_vcia/' + line_name + '_VCIA_Report_v01.xlsx'))
+    wb.save(p / str(line_name + '_VCIA_Report_v01.xlsx'))
 
 
-print(filecollect())
+fz, ctow, spec, logo = filecollect()
+
+line_name = spec.stem.split('_')[1]   # line name from specification name
+
+iface()
+print(f'имя линии: {line_name}')
+
+s_coo = centerline(ctow)
+ids = spec_id(spec)   # get ids
+ng_tab = notgabread(fz)   # get ngtab (v1)
+ng_tab2 = idspannames(ids, ng_tab)    # add id names to ngtab (v2)
+ng_tab3 = filltab(ng_tab2, s_coo)    # add calcs (v3)
+
+for i in range(len(ng_tab3)):
+    print(ng_tab3[i])
+
+excel_export(ng_tab3)
 
 
-#
-# line_name = spec.stem.split('_')[1]   # line name from specification name
-#
-#
-# s_coo = centerline(p_str)
-# ids = spec_id(spec)   # get ids
-# ng_tab = notgabread(p)   # get ngtab (v1)
-# ng_tab2 = idspannames(ids, ng_tab)    # add id names to ngtab (v2)
-# ng_tab3 = filltab(ng_tab2, s_coo)    # add calcs (v3)
-#
-# for i in range(len(ng_tab3)):
-#     print(ng_tab3[i])
-#
-# excel_export(ng_tab3)
+print('\nвсё сработало хорошо :)')
+input('нажмите Enter для выхода')
 
 
-# TODO - интерфейс
 # TODO - таблица под qgis - пролеты с негабаритами, негабаритные точки, длины пролетов
 # TODO - добавить обрезку длинных пролетов
