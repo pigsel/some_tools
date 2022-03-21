@@ -16,11 +16,22 @@ for python 3
 оставляя одно значение с наименьшим габаритом
 
 для QGIS формируется набор данных с помощью которых затем строится атлас изображений
+qgis1 columns (separated by tab):
+(1) work id; (2) id; (3) number of cline; (4, 5, 6) x, y, z
+
+qgis2 (ng_tab3) columns:
+(1) ts span name; (2) wire num; (3) 3d dist to ngab; (4,5,6) x,y,z of ngab point;
+(7) cline num; (8) work id start span; (9) id span start; (10) id span end;
+(11) span length; (12) station; (13) offset; (14) image name
+
+qgis3 columns:
+(1) span name id; (2,3,4) x, y, z of start structure; (5,6,7) x, y, z of end structure;
 
 """
 
 from pathlib import Path
 import openpyxl
+import csv
 from math import sqrt
 
 p = Path.cwd()  # work dir
@@ -60,6 +71,7 @@ def filecollect():
 def iface():
     #  вступительная речь, интервью, интерфейс
     print('\nпривет! поработаем?\n ')
+    print(f'имя линии: {line_name}')
     print('найдены файлы негабаритов на вход:')
     for f in fz:
         print(f'\t- {f.name}')
@@ -277,7 +289,7 @@ def excel_export(tab):
     ### looking for logo and place it
     if logo != 'нет !':
         img = openpyxl.drawing.image.Image(logo)
-        sheet.add_image(img, 'F2')
+        sheet.add_image(img, 'G2')
 
 
     ### fill the file
@@ -443,28 +455,86 @@ def excel_export(tab):
     wb.save(p / str(line_name + '_VCIA_Report_v01.xlsx'))
 
 
+def write_csv(tabtowrite, path):
+    with open(path, 'w', newline='') as f:
+        writer = csv.writer(f, delimiter='\t')
+        writer.writerows(tabtowrite)
+
+
+def idsforqgis(coords, idsspec):
+    # add x, y, z from coords to id_tab and write to file
+    a = b = 0
+    for a in range(len(idsspec)):
+        for b in range(len(coords)):
+            if idsspec[a][0] == coords[b][0]:
+                for co in [coords[b][1], coords[b][2], coords[b][3]]:
+                    idsspec[a].append(co)
+    # write tab out
+    write_csv(idsspec, (p / 'qgis1.txt'))
+
+    return idsspec
+
+
+def qgis_spans(ngabtab, coords):
+    # format and export tab with notgab spans coords
+    spantab = []
+    for a in range(len(ngabtab)):
+        spantab.append([])
+        spantab[a].append(f'{ngabtab[a][8]} - {ngabtab[a][9]}')
+        for t in [ngabtab[a][8], ngabtab[a][9]]:
+            for b in range(len(coords)):
+                if t == coords[b][1]:
+                    for coo in [coords[b][3], coords[b][4], coords[b][5]]:
+                        spantab[a].append(coo)
+
+    write_csv(spantab, (p / 'qgis3.txt'))
+
+
+# start here
+# collect all the files
 fz, ctow, spec, logo = filecollect()
 
-line_name = spec.stem.split('_')[1]   # line name from specification name
+# finding line name from name of specification
+line_name = spec.stem.split('_')[1]
 
+# start interface
 iface()
-print(f'имя линии: {line_name}')
 
+# read coordinates
 s_coo = centerline(ctow)
+#print(s_coo[1])
+
+# read specifications and get ids
 ids = spec_id(spec)   # get ids
+#print(ids[1])
+
+# read files with notgab points and updating the table
 ng_tab = notgabread(fz)   # get ngtab (v1)
 ng_tab2 = idspannames(ids, ng_tab)    # add id names to ngtab (v2)
 ng_tab3 = filltab(ng_tab2, s_coo)    # add calcs (v3)
 
-for i in range(len(ng_tab3)):
-    print(ng_tab3[i])
+# printing final tab
+# for i in range(len(ng_tab3)):
+#     print(ng_tab3[i])
 
+# export to xlsx file
 excel_export(ng_tab3)
+
+# start part 2 - creating tables for qgis
+print('p a r t _ 2')
+
+ids2 = idsforqgis(s_coo, ids)
+print('tab qgis1.txt - done')
+
+write_csv(ng_tab3, (p / 'qgis2.txt'))
+print('tab qgis2.txt - done')
+
+qgis_spans(ng_tab3, ids2)
+print('tab qgis3.txt - done')
 
 
 print('\nвсё сработало хорошо :)')
 input('нажмите Enter для выхода')
 
 
-# TODO - таблица под qgis - пролеты с негабаритами, негабаритные точки, длины пролетов
-# TODO - добавить обрезку длинных пролетов
+# TODO - добавить обрезку длинных пролетов ?
