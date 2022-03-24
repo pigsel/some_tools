@@ -469,6 +469,17 @@ def idsforqgis(coords, idsspec):
             if idsspec[a][0] == coords[b][0]:
                 for co in [coords[b][1], coords[b][2], coords[b][3]]:
                     idsspec[a].append(co)
+
+    # then looking for dubs (they are with no coords)
+    a = b = 0
+    for a in range(len(idsspec)):
+        if len(idsspec[a]) < 6:
+            for b in range(len(idsspec)):
+                if idsspec[a][1] == idsspec[b][1]:
+                    for co in [idsspec[b][3], idsspec[b][4], idsspec[b][5]]:
+                        idsspec[a].append(co)
+                    break
+
     # write tab out
     write_csv(idsspec, (p / 'qgis1.txt'))
 
