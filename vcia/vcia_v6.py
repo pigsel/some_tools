@@ -488,16 +488,23 @@ def idsforqgis(coords, idsspec):
 
 def qgis_spans(ngabtab, coords):
     # format and export tab with notgab spans coords
-    spantab = []
+    spantab = []  #   final tab
+    templist = []   # temporary for list of used names
     for a in range(len(ngabtab)):
-        spantab.append([])
-        spantab[a].append(f'{ngabtab[a][8]} - {ngabtab[a][9]}')
-        for t in [ngabtab[a][8], ngabtab[a][9]]:
-            for b in range(len(coords)):
-                if t == coords[b][1]:
-                    for coo in [coords[b][3], coords[b][4], coords[b][5]]:
-                        spantab[a].append(coo)
+        spanname = str(f'{ngabtab[a][8]} - {ngabtab[a][9]}')
+        if spanname not in templist:
+            # check if we already NOT write span
+            templist.append(spanname)
+            spantab.append([])
+            spantab[-1].append(spanname)
 
+            for t in [ngabtab[a][8], ngabtab[a][9]]:
+                for b in range(len(coords)):
+                    if t == coords[b][1]:
+                        for coo in [coords[b][3], coords[b][4], coords[b][5]]:
+                            spantab[-1].append(coo)
+
+    templist = []
     write_csv(spantab, (p / 'qgis3.txt'))
 
 
