@@ -25,8 +25,8 @@ qgis2 (ng_tab3) columns:
 (11) span length; (12) station; (13) offset; (14) image name
 
 qgis3 columns:
-(1) span name id; (2) ngdist; (3) L; (4,5,6) x,y,z of start structure;
-(7,8,9) x,y,z of end structure; (10) azimuth; (11) map angle.
+(1) span name id; (2) min ngdist for span; (3) L; (4,5,6) x,y,z of start structure;
+(7,8,9) x,y,z of end structure; (10) azimuth; (11) map angle, (12) num of violations
 
 """
 
@@ -511,12 +511,12 @@ def azimuth(a, b):
 def qgis_spans(ngabtab, coords):
     # format and export tab with notgab spans coords
     spantab = []  #   final tab
-    templist = []   # temporary for list of used names
+    templist = {}   # temporary for list of used names
     for a in range(len(ngabtab)):
         spanname = str(f'{ngabtab[a][8]} - {ngabtab[a][9]}')
-        if spanname not in templist:
+        if spanname not in templist.keys():
             # check if we already NOT write span
-            templist.append(spanname)
+            templist[spanname] = [1, ngabtab[a][2]]
             spantab.append([])
             spantab[-1].append(spanname)
             spantab[-1].append(ngabtab[a][2])   # add 3d dist
@@ -532,8 +532,17 @@ def qgis_spans(ngabtab, coords):
             az = azimuth(az_coo[:2], az_coo[3:5])
             spantab[-1].append(az)    # add azimuth
             spantab[-1].append(round((90-az), 2))    # add map angle
+        else:
+            templist[spanname][0] += 1
+            if templist[spanname][1] > ngabtab[a][2]:
+                templist[spanname][1] = ngabtab[a][2]
 
-    templist = []
+    for sp in range(len(spantab)):
+        # from dict write new data to final tab
+        if spantab[sp][0] in templist.keys():
+            spantab[sp][1] = templist[spantab[sp][0]][1]
+            spantab[sp].append(templist[spantab[sp][0]][0])
+
     write_csv(spantab, (p / 'qgis3.txt'))
 
 
