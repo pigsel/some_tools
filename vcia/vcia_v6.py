@@ -25,14 +25,15 @@ qgis2 (ng_tab3) columns:
 (11) span length; (12) station; (13) offset; (14) image name
 
 qgis3 columns:
-(1) span name id; (2,3,4) x, y, z of start structure; (5,6,7) x, y, z of end structure;
+(1) span name id; (2) ngdist; (3) L; (4,5,6) x,y,z of start structure;
+(7,8,9) x,y,z of end structure; (10) azimuth; (11) map angle.
 
 """
 
 from pathlib import Path
 import openpyxl
 import csv
-from math import sqrt
+from math import sqrt, acos, degrees
 
 p = Path.cwd()  # work dir
 
@@ -486,6 +487,27 @@ def idsforqgis(coords, idsspec):
     return idsspec
 
 
+def azimuth(a, b):
+    # by two points we get azimuth
+    dx = a[0] - b[0]
+    dy = a[1] - b[1]
+    dist = sqrt(dx*dx + dy*dy)    # dist a to b
+    dx2 = abs(dx)
+    beta = degrees(acos(dx2/dist))
+    if dx > 0:
+        if dy < 0:
+            angle = 270 + beta
+        else:
+            angle = 270 - beta
+    else:
+        if dy < 0:
+            angle = 90 - beta
+        else:
+            angle = 90 + beta
+
+    return round(angle, 2)
+
+
 def qgis_spans(ngabtab, coords):
     # format and export tab with notgab spans coords
     spantab = []  #   final tab
@@ -497,12 +519,19 @@ def qgis_spans(ngabtab, coords):
             templist.append(spanname)
             spantab.append([])
             spantab[-1].append(spanname)
+            spantab[-1].append(ngabtab[a][2])   # add 3d dist
+            spantab[-1].append(ngabtab[a][10])   # add span length
 
+            az_coo = []  # coords to calc azimuth
             for t in [ngabtab[a][8], ngabtab[a][9]]:
                 for b in range(len(coords)):
                     if t == coords[b][1]:
                         for coo in [coords[b][3], coords[b][4], coords[b][5]]:
                             spantab[-1].append(coo)
+                            az_coo.append(coo)
+            az = azimuth(az_coo[:2], az_coo[3:5])
+            spantab[-1].append(az)    # add azimuth
+            spantab[-1].append(round((90-az), 2))    # add map angle
 
     templist = []
     write_csv(spantab, (p / 'qgis3.txt'))
