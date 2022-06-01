@@ -2,7 +2,7 @@
 урок 1 - парсинг сайта пятерочки
 
 - найти ссылку на апи,
-- написать скрипт чтобы растопырить апи на словарь
+- написать скрипт чтобы скачать json
 
 """
 
@@ -32,3 +32,8 @@ def x5ka(url):
 if __name__ == '__main__':
     categories = requests.get(CAT_URL, headers=headers)
     data = x5ka(URL)
+
+    with open('products.json', 'w') as file:
+        file.write(json.dumps(data, indent=4))
+
+# не завершено - можно добавить еще параметров в урл - как в настоящем сайте (кол-во на странице и т.п.)
