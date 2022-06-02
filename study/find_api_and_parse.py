@@ -17,11 +17,12 @@ headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:100.0) Ge
            'store': 5113}
 
 
-def x5ka(url):
+def get_products(url, params):
     result = []
     while url:
         # пока есть данные в url делаем запросы
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, params=params) if params else requests.get(url, headers=headers)
+        params = None
         data = response.json()
         result.extend(data.get('results'))    # добавляем данные из json
         url = data.get('next')   # ищем ссылку на след страницу
@@ -29,11 +30,23 @@ def x5ka(url):
     return result
 
 
+def clear_name(name: str) -> str:
+    tmp = name.replace('*', '').replace(',', '').replace('"', '').lower().split()
+    return '_'.join(tmp)
+
+
 if __name__ == '__main__':
-    categories = requests.get(CAT_URL, headers=headers)
-    data = x5ka(URL)
+    categories = requests.get(CAT_URL, headers=headers).json()
 
-    with open('products.json', 'w') as file:
-        file.write(json.dumps(data, indent=4))
+    for category in categories:
+        category['products'] = get_products(URL, {'records_per_page': 100,
+                                                  'categories': category['parent_group_code']
+                                                  }
+                                            )
 
-# не завершено - можно добавить еще параметров в урл - как в настоящем сайте (кол-во на странице и т.п.)
+        with open(f'jdata/{clear_name(category["parent_group_name"])}.json', 'w') as file:
+            file.write(json.dumps(category))
+
+
+# не работает тк сайт изменился с тех пор
+
