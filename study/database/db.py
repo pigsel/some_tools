@@ -3,6 +3,7 @@ from sqlalchemy.orm import sessionmaker
 from study.database.models import (Base)
 
 
+
 class BlogDb:
     def __init__(self, db_url, base=Base):
         engine = create_engine(db_url)
