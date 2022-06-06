@@ -1,16 +1,11 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from database.models import (
-    Base,
-    BlogPost,
-    Writer,
-    Tag,
-)
+from study.database.models import (Base)
 
 
 class BlogDb:
-    def __init__(self, url, base=Base):
-        engine = create_engine(url)
+    def __init__(self, db_url, base=Base):
+        engine = create_engine(db_url)
         base.metadata.create_all(engine)
         session_db = sessionmaker(bind=engine)
         self.__session = session_db()
@@ -23,4 +18,3 @@ class BlogDb:
 if __name__ == '__main__':
     db_url = 'sqlite:///blogpost.sqlite'
     db = BlogDb(db_url)
-    print(1)

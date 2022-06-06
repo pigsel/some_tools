@@ -47,7 +47,6 @@ class Tag(Base):
         self.name = name
 
 
-
 # класс автора блога
 class Writer(Base):
     __tablename__ = 'writer'
