@@ -3,7 +3,6 @@ from sqlalchemy.orm import sessionmaker
 from study.database.models_ar import (Base)
 
 
-
 class BlogDb:
     def __init__(self, db_url, base=Base):
         engine = create_engine(db_url)
@@ -19,3 +18,4 @@ class BlogDb:
 if __name__ == '__main__':
     db_url = 'sqlite:///aru.sqlite'
     db = BlogDb(db_url)
+    print(1)
