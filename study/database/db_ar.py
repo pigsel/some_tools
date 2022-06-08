@@ -3,7 +3,7 @@ from sqlalchemy.orm import sessionmaker
 from study.database.models_ar import (Base)
 
 
-class BlogDb:
+class AutoruDb:
     def __init__(self, db_url, base=Base):
         engine = create_engine(db_url)
         base.metadata.create_all(engine)
@@ -17,5 +17,7 @@ class BlogDb:
 
 if __name__ == '__main__':
     db_url = 'sqlite:///aru.sqlite'
-    db = BlogDb(db_url)
+    db = AutoruDb(db_url)
     print(1)
+
+    #TODO create dicts of colors, tags, fuels, volumes, powers, bodytypes, vendors, transmissions
