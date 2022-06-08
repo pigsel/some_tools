@@ -20,4 +20,4 @@ if __name__ == '__main__':
     db = AutoruDb(db_url)
     print(1)
 
-    #TODO create dicts of colors, tags, fuels, volumes, powers, bodytypes, vendors, transmissions
+    #TODO create dicts

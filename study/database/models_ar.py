@@ -5,6 +5,7 @@ from sqlalchemy import (
     String,
     Integer,
     Boolean,
+    Float,
 )
 
 from sqlalchemy.orm import relationship
@@ -172,7 +173,7 @@ class Power(Base):
 class Volume(Base):
     __tablename__ = 'volume'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    engine_volume = Column(Integer, unique=True)
+    engine_volume = Column(Float, unique=True)
 
     def __init__(self, engine_volume: int):
         self.engine_volume = engine_volume
