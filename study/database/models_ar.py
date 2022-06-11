@@ -65,13 +65,11 @@ class Tag(Base):
 class Owner(Base):
     __tablename__ = 'owner'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    url = Column(String, unique=True)
     name = Column(String)
     isprivate = Column(Boolean)
 
-    def __init__(self, name: str, url: str, isprivate: bool):
+    def __init__(self, name: str, isprivate: bool):
         self.name = name
-        self.url = url
         self.isprivate = isprivate
 
 
