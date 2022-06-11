@@ -105,6 +105,8 @@ class Car(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     brand = Column(String)
     model = Column(String)
+    engine_id = Column(Integer, ForeignKey('engine.id'))
+    engine = relationship('Engine', backref='cars')
     bodytype_id = Column(Integer, ForeignKey('bodytype.id'))
     bodytype = relationship('Bodytype', backref='cars')
     doors = Column(Integer)
@@ -115,10 +117,11 @@ class Car(Base):
     vendor_id = Column(Integer, ForeignKey('vendor.id'))
     vendor = relationship('Vendor', backref='cars')
 
-    def __init__(self, brand: str, model: str, bodytype, doors: int,
+    def __init__(self, brand: str, model: str, engine, bodytype, doors: int,
                  fullwd: bool, rightwheel: bool, transmission, vendor):
         self.brand = brand
         self.model = model
+        self.engine = engine
         self.bodytype = bodytype
         self.doors = doors
         self.fullwd = fullwd

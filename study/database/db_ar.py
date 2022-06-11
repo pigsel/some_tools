@@ -11,7 +11,9 @@ from study.database.models_ar import \
     Fuel, \
     Power, \
     Owner, \
-    Engine
+    Engine, \
+    Car, \
+    Offer
 
 import json
 
@@ -35,6 +37,7 @@ if __name__ == '__main__':
     with open("../autoru.json", "r") as read_file:
         offers = json.load(read_file)
 
+
     # проход 1 - наполнение независимых таблиц
     # colors = []
     # transmissions = []
@@ -46,10 +49,11 @@ if __name__ == '__main__':
     # tags = []
     # owners = []
 
-
     def addtolist(old_list, new_value_path):
         if new_value_path not in old_list:
             old_list.append(new_value_path)
+
+
     #
     #
     # for offer in offers:
@@ -90,26 +94,62 @@ if __name__ == '__main__':
     # db.session.add_all(db_powers)
     # db.session.commit()
 
+    # проход 2 - наполнение таблицы двигателей с зависимостями
+    # engines = []
+    #
+    # for offer in offers:
+    #
+    #     power = offer['vehicle_info']['tech_param']['power']
+    #     power_id = db.session.query(Power).filter_by(horsepower=power).first()
+    #     volume = offer['vehicle_info']['tech_param']['displacement']
+    #     volume_id = db.session.query(Volume).filter_by(engine_volume=round(volume / 1000, 1)).first()
+    #     fuel = offer['vehicle_info']['tech_param']['engine_type']
+    #     fuel_id = db.session.query(Fuel).filter_by(name=fuel).first()
+    #     addtolist(engines, [power_id, volume_id, fuel_id])
+    #
+    # db_engines = [Engine(itm[0], itm[1], itm[2]) for itm in engines]
+    # db.session.add_all(db_engines)
+    # db.session.commit()
 
-    # проход 2 - наполнение основных таблиц с зависимостями
-    engines = []
+    # проход 3 - наполнение таблицы моделей машин
+    cars = []
 
     for offer in offers:
+        # brand: str, model: str, engine, bodytype, doors: int,
+        # fullwd: bool, rightwheel: bool, transmission, vendor
 
+        brand = offer['vehicle_info']['mark_info']['name']
+        model = offer['vehicle_info']['model_info']['name']
+        # engine
         power = offer['vehicle_info']['tech_param']['power']
         power_id = db.session.query(Power).filter_by(horsepower=power).first()
         volume = offer['vehicle_info']['tech_param']['displacement']
         volume_id = db.session.query(Volume).filter_by(engine_volume=round(volume / 1000, 1)).first()
         fuel = offer['vehicle_info']['tech_param']['engine_type']
         fuel_id = db.session.query(Fuel).filter_by(name=fuel).first()
-        addtolist(engines, [power_id, volume_id, fuel_id])
+        engine = db.session.query(Engine).\
+            filter_by(power=power_id). \
+            filter_by(volume=volume_id). \
+            filter_by(fuel=fuel_id).\
+            first()
 
-    db_engines = [Engine(itm[0], itm[1], itm[2]) for itm in engines]
-    db.session.add_all(db_engines)
+        bodytype = offer['vehicle_info']['configuration']['body_type']
+        bodytype_id = db.session.query(Bodytype).filter_by(name=bodytype).first()
+        doors = offer['vehicle_info']['configuration']['doors_count']
+        fullwd = offer['vehicle_info']['tech_param']['gear_type']    # 'ALL_WHEEL_DRIVE' - create new tab
+        rightwheel = offer['vehicle_info']['steering_wheel']
+        transmission = ''
+        transmission_id = ''
+        vendor = ''
+        vendor_id = ''
+
+        addtolist(cars, [brand, model, engine, bodytype_id, doors, fullwd, rightwheel, transmission_id, vendor_id])
+
+    db_cars = [Car(itm[0], itm[1], itm[2]) for itm in cars]
+    db.session.add_all(db_cars)
     db.session.commit()
 
-
-#TODO create offer, car, engine
+# TODO create offer, car, engine
 
 
 print(1)
