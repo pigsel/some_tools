@@ -110,7 +110,8 @@ class Car(Base):
     bodytype_id = Column(Integer, ForeignKey('bodytype.id'))
     bodytype = relationship('Bodytype', backref='cars')
     doors = Column(Integer)
-    fullwd = Column(Boolean)
+    wdtype_id = Column(Integer, ForeignKey('wheeldrive.id'))
+    wdtype = relationship('Wheeldrive', backref='cars')
     rightwheel = Column(Boolean)
     transmission_id = Column(Integer, ForeignKey('transmission.id'))
     transmission = relationship('Transmission', backref='cars')
@@ -118,13 +119,13 @@ class Car(Base):
     vendor = relationship('Vendor', backref='cars')
 
     def __init__(self, brand: str, model: str, engine, bodytype, doors: int,
-                 fullwd: bool, rightwheel: bool, transmission, vendor):
+                 wdtype, rightwheel: bool, transmission, vendor):
         self.brand = brand
         self.model = model
         self.engine = engine
         self.bodytype = bodytype
         self.doors = doors
-        self.fullwd = fullwd
+        self.wdtype = wdtype
         self.rightwheel = rightwheel
         self.transmission = transmission
         self.vendor = vendor
@@ -183,6 +184,16 @@ class Volume(Base):
 #add table fuel
 class Fuel(Base):
     __tablename__ = 'fuel'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, unique=True)
+
+    def __init__(self, name: str):
+        self.name = name
+
+
+#add table wd
+class Wheeldrive(Base):
+    __tablename__ = 'wheeldrive'
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, unique=True)
 
