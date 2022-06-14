@@ -207,10 +207,12 @@ if __name__ == '__main__':
         yearold = offer['documents']['year']
         mileage = offer['state']['mileage']
         beaten = offer['state']['state_not_beaten']
-        taglist = offer['tags']
+        tagsdb = []
+        for newtag in offer['tags']:
+            tagsdb.append(db.session.query(Tag).filter_by(name=newtag).first())
 
         addtolist(newoffers, [car, creation_date, price, color_id, owner_id,
-                              yearold, mileage, beaten, taglist])
+                              yearold, mileage, beaten, tagsdb])
 
         #print(1)
 
