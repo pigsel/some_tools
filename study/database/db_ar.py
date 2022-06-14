@@ -39,7 +39,7 @@ if __name__ == '__main__':
         offers = json.load(read_file)
 
 
-    #проход 1 - наполнение независимых таблиц
+    # проход 1 - наполнение независимых таблиц
     colors = []
     transmissions = []
     vendors = []
@@ -66,9 +66,6 @@ if __name__ == '__main__':
         fuel_id = db.session.query(Fuel).filter_by(name=fuel).first()
 
         return power_id, volume_id, fuel_id
-
-
-
 
 
     for offer in offers:
@@ -145,7 +142,7 @@ if __name__ == '__main__':
         bodytype = offer['vehicle_info']['configuration']['body_type']
         bodytype_id = db.session.query(Bodytype).filter_by(name=bodytype).first()
         doors = offer['vehicle_info']['configuration']['doors_count']
-        wdtype = offer['vehicle_info']['tech_param']['gear_type']    # 'ALL_WHEEL_DRIVE' - create new tab
+        wdtype = offer['vehicle_info']['tech_param']['gear_type']
         wdtype_id = db.session.query(Wheeldrive).filter_by(name=wdtype).first()
         rightwheel = offer['vehicle_info']['steering_wheel']  # == ?
         transmission = offer['vehicle_info']['tech_param']['transmission']
@@ -161,7 +158,62 @@ if __name__ == '__main__':
     db.session.commit()
 
 
-# TODO create offer
+    # проход 4 - финальный проход - заполнение оферов
+    newoffers = []
+    # car_id, creation_date: int, price: int, color, owner,
+    # yearold: int, mileage: int, beaten: bool, tags = []
 
+    for offer in offers:
+        # choose car
+        brand = offer['vehicle_info']['mark_info']['name']
+        model = offer['vehicle_info']['model_info']['name']
 
-#print(1)
+        power_id, volume_id, fuel_id = engineprop()
+        engine = db.session.query(Engine).\
+            filter_by(power=power_id). \
+            filter_by(volume=volume_id). \
+            filter_by(fuel=fuel_id).\
+            first()
+
+        bodytype = offer['vehicle_info']['configuration']['body_type']
+        bodytype_id = db.session.query(Bodytype).filter_by(name=bodytype).first()
+        doors = offer['vehicle_info']['configuration']['doors_count']
+        wdtype = offer['vehicle_info']['tech_param']['gear_type']
+        wdtype_id = db.session.query(Wheeldrive).filter_by(name=wdtype).first()
+        rightwheel = (offer['vehicle_info']['steering_wheel'] == 'RIGHT')
+        transmission = offer['vehicle_info']['tech_param']['transmission']
+        transmission_id = db.session.query(Transmission).filter_by(name=transmission).first()
+        vendor = offer['vehicle_info']['vendor']
+        vendor_id = db.session.query(Vendor).filter_by(name=vendor).first()
+
+        car = db.session.query(Car). \
+            filter_by(brand=brand). \
+            filter_by(model=model). \
+            filter_by(engine=engine). \
+            filter_by(bodytype=bodytype_id). \
+            filter_by(doors=doors). \
+            filter_by(wdtype=wdtype_id). \
+            filter_by(rightwheel=rightwheel). \
+            filter_by(transmission=transmission_id). \
+            filter_by(vendor=vendor_id). \
+            first()
+
+        creation_date = offer['additional_info']['creation_date']
+        price = offer['price_info']['USD']
+        color = offer['color_hex']
+        color_id = db.session.query(Color).filter_by(name=color).first()
+        owner = offer['seller']['name']
+        owner_id = db.session.query(Owner).filter_by(name=owner).first()
+        yearold = offer['documents']['year']
+        mileage = offer['state']['mileage']
+        beaten = offer['state']['state_not_beaten']
+        taglist = offer['tags']
+
+        addtolist(newoffers, [car, creation_date, price, color_id, owner_id,
+                              yearold, mileage, beaten, taglist])
+
+        #print(1)
+
+    db_offers = [Offer(itm[0], itm[1], itm[2], itm[3], itm[4], itm[5], itm[6], itm[7], itm[8]) for itm in newoffers]
+    db.session.add_all(db_offers)
+    db.session.commit()

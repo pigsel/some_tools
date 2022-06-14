@@ -27,9 +27,9 @@ class Offer(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     car_id = Column(Integer, ForeignKey('car.id'))
     car = relationship('Car', backref='offers')
-    creation_date = Column(Integer)
+    creation_date = Column(String)
     price = Column(Integer)
-    color_hex = Column(String, ForeignKey('color.hex'))
+    color_id = Column(Integer, ForeignKey('color.id'))
     color = relationship('Color', backref='offers')
     __owner = Column(Integer, ForeignKey('owner.id'))
     owner = relationship('Owner', backref='offers')
@@ -38,8 +38,10 @@ class Offer(Base):
     beaten = Column(Boolean)    #state_not_beaten
     tags = relationship('Tag', secondary=assoc_offer_tag, backref='offers')
 
-    def __init__(self, creation_date: int, price: int, color, owner,
-                 yearold: int, mileage: int, beaten: bool, tags=[]):
+    def __init__(self, car, creation_date: int, price: int, color, owner,
+                 yearold: int, mileage: int, beaten: bool, tags):
+
+        self.car = car
         self.creation_date = creation_date
         self.price = price
         self.color = color
@@ -47,8 +49,7 @@ class Offer(Base):
         self.yearold = yearold
         self.mileage = mileage
         self.beaten = beaten
-        if tags:
-            self.tags.extend(tags)
+        self.tags = tags
 
 
 # класс для объекта тега
@@ -76,7 +77,8 @@ class Owner(Base):
 # класс colors
 class Color(Base):
     __tablename__ = 'color'
-    hex = Column(String, primary_key=True, unique=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    hex = Column(String, unique=True)
     name = Column(String, unique=True)
 
     def __init__(self, hex: str, name: str):
