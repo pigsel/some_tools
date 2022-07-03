@@ -202,7 +202,8 @@ if __name__ == '__main__':
         price = offer['price_info']['USD']
         color = offer['color_hex']
         color_id = db.session.query(Color).filter_by(name=color).first()
-        owner = offer['seller']['name']
+        owner = offer
+        ['seller']['name']
         owner_id = db.session.query(Owner).filter_by(name=owner).first()
         yearold = offer['documents']['year']
         mileage = offer['state']['mileage']
