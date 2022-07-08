@@ -8,6 +8,13 @@
 # TODO - добавить разворот
 # TODO - интерфейс
 
+# исправить:
+# ShapelyDeprecationWarning: __len__ for multi-part geometries is deprecated
+# and will be removed in Shapely 2.0.
+# Check the length of the `geoms` property
+# instead to get the  number of parts of a multi-part geometry.
+# if len(tow_cut) == 0 and len(grd_cut) == 0:
+
 
 import struct
 import numpy as np
@@ -53,7 +60,7 @@ def bin_reader(p):
     bin_data = p.read_bytes()
 
     # HEADER
-    bin_header = struct.unpack('3i4sli3d2i', bin_data[0:56])
+    bin_header = struct.unpack('<3i4sli3d2i', bin_data[0:56])
     # hdr_size = bin_header[0]   # header size
     # hdr_version = bin_header[1]   # Version 20020715, 20010712, 20010129 or 970404
     # pnt_cnt = bin_header[4]   # Number of points stored
@@ -69,39 +76,39 @@ def bin_reader(p):
     if bin_header[1] == 20020715:
         if bin_header[9] != 0 and bin_header[10] == 0:
             out_header = ['x', 'y', 'z', 'class', 'echo', 'run_f1', 'run_f2', 'flightline', 'intensity', 'time']
-            points = tuple(struct.iter_unpack('3L4B2HI', bin_data[56:]))  # (24, '3l4b2HI', 10)
+            points = tuple(struct.iter_unpack('<3L4B2HI', bin_data[56:]))  # (24, '3l4b2HI', 10)
 
         elif bin_header[9] == 0 and bin_header[10] != 0:
             out_header = ['x', 'y', 'z', 'class', 'echo', 'run_f1', 'run_f2', 'flightline', 'intensity', 'color']
-            points = tuple(struct.iter_unpack('3L4B2HI', bin_data[56:]))  # (24, '3l4b2HI', 10)
+            points = tuple(struct.iter_unpack('<3L4B2HI', bin_data[56:]))  # (24, '3l4b2HI', 10)
 
         elif bin_header[9] == 0 and bin_header[10] == 0:
             out_header = ['x', 'y', 'z', 'class', 'echo', 'run_f1', 'run_f2', 'flightline', 'intensity']
-            points = tuple(struct.iter_unpack('3L4B2H', bin_data[56:]))  # (20, '3l4b2H', 9)
+            points = tuple(struct.iter_unpack('<3L4B2H', bin_data[56:]))  # (20, '3l4b2H', 9)
 
         elif bin_header[9] != 0 and bin_header[10] != 0:
             out_header = ['x', 'y', 'z', 'class', 'echo', 'run_f1', 'run_f2', 'flightline', 'intensity', 'time',
                           'color']
-            points = tuple(struct.iter_unpack('3L4B2H2I', bin_data[56:]))  # (28, '3l4b2H2I', 11)
+            points = tuple(struct.iter_unpack('<3L4B2H2I', bin_data[56:]))  # (28, '3l4b2H2I', 11)
 
 
     # 8 bit
     elif bin_header[1] == 20010712:
         if bin_header[9] != 0 and bin_header[10] == 0:
             out_header = ['class', 'flight', 'intens_echo', 'x', 'y', 'z', 'time']
-            points = tuple(struct.iter_unpack('2BH3LI', bin_data[56:]))
+            points = tuple(struct.iter_unpack('<2BH3LI', bin_data[56:]))
 
         elif bin_header[9] == 0 and bin_header[10] == 0:
             out_header = ['class', 'flight', 'intens_echo', 'x', 'y', 'z']
-            points = tuple(struct.iter_unpack('2BH3L', bin_data[56:]))
+            points = tuple(struct.iter_unpack('<2BH3L', bin_data[56:]))
 
         elif bin_header[9] != 0 and bin_header[10] != 0:
             out_header = ['class', 'flight', 'intens_echo', 'x', 'y', 'z', 'time', 'color']
-            points = tuple(struct.iter_unpack('2BH3L2I', bin_data[56:]))  # (24, '2bH3l2I', 8)
+            points = tuple(struct.iter_unpack('<2BH3L2I', bin_data[56:]))  # (24, '2bH3l2I', 8)
 
         elif bin_header[9] == 0 and bin_header[10] != 0:
             out_header = ['class', 'flight', 'intens_echo', 'x', 'y', 'z', 'color']
-            points = tuple(struct.iter_unpack('2BH3LI', bin_data[56:]))  # (20, '2bH3lI', 7)
+            points = tuple(struct.iter_unpack('<2BH3LI', bin_data[56:]))  # (20, '2bH3lI', 7)
 
     else:
         out_header = ['неверный формат файла']
@@ -125,7 +132,7 @@ def struct_boxes(cgtw_g, buf_kor):
             line_n = cgtw_g.loc[i, 'c_line']
             spam.append((cgtw_g.loc[i].x, cgtw_g.loc[i].y))
 
-    m_lines_2d = MultiLineString(coo_2d)  # переводим в мультилинии
+    m_lines_2d = MultiLineString(coo_2d)    # переводим в мультилинии
     report('построены полилинии для коридоров', rprt)
 
     # строим коридоры вокруг центрлайнов и нарезаем их
