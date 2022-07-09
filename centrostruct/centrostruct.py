@@ -26,9 +26,9 @@ from shapely.ops import split
 import csv
 
 # пути
-workdir = Path(r'D:\work\2021\TP_21\647_INV-TWI-A\py_cgt')
-p_bin = workdir / '647_wires_g25v.bin'
-p_cgtw = workdir / 'ctow.pts'  # path to ctow
+workdir = Path(r'D:\work\2022_makarov\training\ok')
+p_bin = workdir / '645.bin'
+p_cgtw = workdir / 'ctow.txt'  # path to ctow
 
 resultdir = workdir / 'result'
 if not resultdir.exists():
@@ -147,16 +147,16 @@ def struct_boxes(cgtw_g, buf_kor):
             spam = LineString([line.coords[i], mp])  # line from str to mid
             left = spam.parallel_offset((buf_kor+3), 'left')  # left parallel line
             right = spam.parallel_offset((buf_kor+3), 'right')  # right parallel line
-            xline = LineString([left.boundary[1], right.boundary[0]])  # x-line on mid point
+            xline = LineString([left.boundary.geoms[1], right.boundary.geoms[0]])  # x-line on mid point
 
             cut = split(kor_spam, xline)   # режем коридор по x-line на две части
             #print(i, len(cut))
-            if Point(line.coords[i]).within(cut[0]):    # проверяем какой из коридоров нам нужен
-                str_boxes.append(cut[0])    # наш (отрезок) коридор добавляем в список
-                kor_spam = cut[1]    # переприсваиваем оставшуюся большую часть
+            if Point(line.coords[i]).within(cut.geoms[0]):    # проверяем какой из коридоров нам нужен
+                str_boxes.append(cut.geoms[0])    # наш (отрезок) коридор добавляем в список
+                kor_spam = cut.geoms[1]    # переприсваиваем оставшуюся большую часть
             else:
-                str_boxes.append(cut[1])
-                kor_spam = cut[0]
+                str_boxes.append(cut.geoms[1])
+                kor_spam = cut.geoms[0]
 
         str_boxes.append(kor_spam)   # последний кусок добавляем отдельно
 
@@ -217,7 +217,7 @@ def xyz_read(path):
         spamreader = csv.reader(xyz_file, delimiter=' ', quoting=csv.QUOTE_NONNUMERIC, skipinitialspace=True)
         for row in spamreader:
             spamlist.append(row)
-        spamlist = MultiPoint(spamlist)
+        #spamlist = MultiPoint(spamlist)   # убираю - пусть останется просто лист
 
     return spamlist
 
@@ -231,10 +231,20 @@ def z_level_gpd(x, y, g_array, radius):
 
 def z_level_shp(x, y, g_array, radius):
     # for shapely array
+    g_array = MultiPoint(g_array)   # to shapely
     s = Point(x, y)  # используем уточненную координату
     grd_cut2 = g_array.intersection(s.buffer(radius))   # вырезаем поуже
-    if len(grd_cut2) > 0:
-        return np.mean(grd_cut2, axis=0)[2]  # новый уровень земли
+
+    if type(grd_cut2) == Point:
+        return grd_cut2.z
+
+    elif len(grd_cut2.geoms) > 0:
+        aa = []    # переводим назад в простой массив (new shapely does not work well)
+        for i in grd_cut2.geoms:
+            aa.append(list(i.coords)[0])
+
+        return np.mean(aa, axis=0)[2]  # новый уровень земли
+
     else:
         report('ошибка определения высоты опоры, приравниваем к 0', rprt)
         return 0
@@ -357,6 +367,7 @@ def find_center(cgtw_g, buf_radius_2, polybuff):
         n_x, n_y, n_z = (round(cgtw_g.loc[idx, i], 2) for i in ('x', 'y', 'z'))  # xyz initial
         # cut from boxes
         if cgtw_g.loc[idx, 'havepoints'] == 1:
+            # переделываю эту часть в простой массив, вместо MultiPoint
             tow_cut = xyz_read(tempdir / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_str.xyz"))
             grd_cut = xyz_read(tempdir / str(f"{idx}_{cgtw_g.loc[idx, 'id']}_grd.xyz"))
         else:
@@ -392,7 +403,7 @@ def find_center(cgtw_g, buf_radius_2, polybuff):
             up_lvl = (tow_top - grd_lvl) * ((100 - up_str) / 100) + grd_lvl
             tow_up = []
             for i in range(len(tow_cut)):
-                if tow_cut[i].z > up_lvl:
+                if tow_cut[i][2] > up_lvl:
                     tow_up.append(tow_cut[i])  # upper points
             tow_up = MultiPoint(tow_up)
             # находим центр
@@ -404,7 +415,7 @@ def find_center(cgtw_g, buf_radius_2, polybuff):
             bot_lvl = (tow_top - tow_low) * (bot_str / 100) + tow_low  # высота части основания от нижнего отражения
             tow_bot = []
             for i in range(len(tow_cut)):
-                if tow_low < tow_cut[i].z < bot_lvl:
+                if tow_low < tow_cut[i][2] < bot_lvl:
                     tow_bot.append(tow_cut[i])  # upper points
             tow_bot = MultiPoint(tow_bot)
 
