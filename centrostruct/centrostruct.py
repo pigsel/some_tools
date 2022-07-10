@@ -1,20 +1,6 @@
 # centroids of structures
 # using lidar data of powerline structures to find their axes
 
-# TODO - попробовать отделить траверсу и тело опоры
-
-# TODO - убирать оттяжки для столбов
-
-# TODO - добавить разворот
-# TODO - интерфейс
-
-# исправить:
-# ShapelyDeprecationWarning: __len__ for multi-part geometries is deprecated
-# and will be removed in Shapely 2.0.
-# Check the length of the `geoms` property
-# instead to get the  number of parts of a multi-part geometry.
-# if len(tow_cut) == 0 and len(grd_cut) == 0:
-
 
 import struct
 import numpy as np
@@ -49,8 +35,8 @@ grd_class = 2   # номер класса с точками земли
 structure_points_class = 203   # номер класса с ТЛО от опор
 buf_radius = 15   # первоначальный радиус отбора точек опор и земли
 buf_radius_2 = 2   # радиус отбора точек земли для финального уточнения высоты
-polybuff = 2   # буфер вокруг полигона при поиске центроида
-bot_str = 20    # процент от высоты опоры снизу для определения центра
+polybuff = 1   # буфер вокруг полигона при поиске центроида
+bot_str = 10    # процент от высоты опоры снизу для определения центра
 up_str = 10    # процент от высоты опоры сверху для определения центра
 rprt = []   # репорт
 
@@ -400,7 +386,8 @@ def find_center(cgtw_g, buf_radius_2, polybuff):
             tow_low = (np.min(tow_cut, axis=0)[2])+1
 
             # начинаем с верхушки опоры
-            up_lvl = (tow_top - grd_lvl) * ((100 - up_str) / 100) + grd_lvl
+            up_lvl = tow_top - 1   # try this
+            #up_lvl = (tow_top - grd_lvl) * ((100 - up_str) / 100) + grd_lvl
             tow_up = []
             for i in range(len(tow_cut)):
                 if tow_cut[i][2] > up_lvl:
@@ -409,13 +396,13 @@ def find_center(cgtw_g, buf_radius_2, polybuff):
             # находим центр
             up_fig = tow_up.convex_hull.buffer(polybuff).centroid  # центр буфера вокруг описывающего полигона
             # method 2
-            # up_fig_2 = tow_up.minimum_rotated_rectangle.centroid  # центр минимального описывающего прямоугольника
+            #up_fig = tow_up.minimum_rotated_rectangle.centroid  # центр минимального описывающего прямоугольника
 
-            # работа с основанием опоры - в пределах верхушки + up_buf
+            # работа с основанием опоры - в пределах верхушки + up_buf -2m
             bot_lvl = (tow_top - tow_low) * (bot_str / 100) + tow_low  # высота части основания от нижнего отражения
             tow_bot = []
             for i in range(len(tow_cut)):
-                if tow_low < tow_cut[i][2] < bot_lvl:
+                if tow_low+2 < tow_cut[i][2] < bot_lvl:
                     tow_bot.append(tow_cut[i])  # upper points
             tow_bot = MultiPoint(tow_bot)
 
