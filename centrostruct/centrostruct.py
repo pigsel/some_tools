@@ -12,7 +12,7 @@ from shapely.ops import split
 import csv
 
 # пути
-workdir = Path(r'D:\work\2022_makarov\training\ok')
+workdir = Path(r'D:\work\2022_m\training\ok')
 p_bin = workdir / '645.bin'
 p_cgtw = workdir / 'ctow.txt'  # path to ctow
 
