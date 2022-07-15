@@ -147,7 +147,6 @@ def aztocoords(az, length):
 # creating DXF
 def hor_axes(a_tab):
     # values
-    layername = 'Hor'
     color = 0
     text = ""   # future part of DXF with hor axes
     structures = []   # list of str to exclude dubs
@@ -159,17 +158,25 @@ def hor_axes(a_tab):
         # check if it not in list
         if spam not in structures:
             structures.append(spam)
-            xarm = a_tab.loc[idx, 'x_arm 1'].coords
 
+            for arm_name in ('x_arm 1', 'x_arm 2', 'x_arm 3'):
+                # create 3 layers with xarms
+                xarm = a_tab.loc[idx, arm_name]
+                # convert string to float
+                xarm = xarm.split(',')
+                for i in range(len(xarm)):
+                    xarm[i] = float(xarm[i].strip('( )'))
 
-            # add header
-            text += f'0\nLINE\n 8\n{layername}\n 62\n     {color}\n'
+                layername = arm_name
 
-            # add first coords
-            text += f" 10\n{xarm[0][0]}\n 20\n{xarm[0][1]}\n 30\n{a_tab.loc[idx, 'x_arm start']}\n"
+                # add header
+                text += f'0\nLINE\n 8\n{layername}\n 62\n     {color}\n'
 
-            # add second coords
-            text += f" 11\n{xarm[1][0]}\n 21\n{xarm[1][1]}\n 31\n{a_tab.loc[idx, 'x_arm start']}\n"
+                # add first coords
+                text += f" 10\n{xarm[0]}\n 20\n{xarm[1]}\n 30\n{xarm[2]}\n"
+
+                # add second coords
+                text += f" 11\n{xarm[3]}\n 21\n{xarm[4]}\n 31\n{xarm[5]}\n"
 
     return text
 
@@ -248,15 +255,16 @@ for n in range(len(cgt_tab)):
     ang_tab.loc[idx, 'x_arm start'] = second_run   # write to tab
 
     # final cut - low level - 0.2m
-    np_str_top = np.delete(np_str_dist, np_str_dist[:, 2] < second_run - 0.2, 0)
+    np_str_top = np.delete(np_str_dist, np_str_dist[:, 2] < second_run - 0.3, 0)
 
     # try to find each arm level
     third_run = xarms_levels_2(np_str_top[:, 2], 0.1)[0]
 
-    num_arms = group_arms(third_run, 0.1)    # bot levels of arms
+    num_arms = group_arms(third_run, 0.2)    # bot levels of arms
     print('num of arms: ', num_arms)
     if len(num_arms) > 3:
         num_arms = num_arms[-3:]    # if there are more than 3 - leave top 3
+        print('!! corrected arms: ', num_arms)
 
     # divide by arms and cut 2m from the center (we use just lowest level of arms = 0.2m)
     arms = []
@@ -267,7 +275,8 @@ for n in range(len(cgt_tab)):
         arms.append(arm)
 
     arm_axes = []
-    for i in range(len(arms)):
+
+    for arm in arms:
         # for each arm
         # devide to 2 part by angle
         # find angle and max len for each part
@@ -275,15 +284,15 @@ for n in range(len(cgt_tab)):
         first_part = []
         second_part = []
 
-        for ii in range(len(arms[i])):
+        for ii in range(len(arm)):
             if ii != 0:
-                if abs(arms[i][:,3][ii]-spam) > 40:
-                    second_part.append(list(arms[i][ii]))
+                if abs(arm[:,3][ii]-spam) > 40:
+                    second_part.append(list(arm[ii]))
                 else:
-                    first_part.append(list(arms[i][ii]))
+                    first_part.append(list(arm[ii]))
             else:
-                spam = arms[i][:,3][ii]
-                first_part.append(list(arms[i][ii]))
+                spam = arm[:,3][ii]
+                first_part.append(list(arm[ii]))
 
         print('разделено на две части: ', len(first_part), len(second_part))
 
@@ -298,11 +307,14 @@ for n in range(len(cgt_tab)):
         first_shift = aztocoords(first_az, first_len)
         sec_shift = aztocoords(sec_az, sec_len)
 
-        start_pt = (round(cpoint[0], 2) + round(first_shift[0], 2), round(cpoint[1], 2) + round(first_shift[1], 2))
-        end_pt = (round(cpoint[0], 2) + round(sec_shift[0], 2), round(cpoint[1], 2) + round(sec_shift[1], 2))
+        start_pt = (round(cpoint[0], 2) + round(first_shift[0], 2),
+                    round(cpoint[1], 2) + round(first_shift[1], 2),
+                    round(first_h, 2))
+        end_pt = (round(cpoint[0], 2) + round(sec_shift[0], 2),
+                  round(cpoint[1], 2) + round(sec_shift[1], 2),
+                  round(sec_h, 2))
 
         arm_axes.append((start_pt, end_pt))
-        #TODO add z coords here
 
     # finaly write them to the tab
     for i in range(len(arm_axes)):
@@ -311,8 +323,8 @@ for n in range(len(cgt_tab)):
 
 ang_tab.to_excel(resultdir / "ang_tab.xlsx")  # save to xls
 
-# TODO - add DXF
+
 # creating DXF
-#p_dxf.write_text('  0\nSECTION\n  2\nENTITIES\n' + hor_axes(ang_tab) + '  0\nENDSEC\n  0\nEOF')
+p_dxf.write_text('  0\nSECTION\n  2\nENTITIES\n' + hor_axes(ang_tab) + '  0\nENDSEC\n  0\nEOF')
 
 input('расчет завершен, нажмите Enter для выхода')
