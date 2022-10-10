@@ -11,9 +11,9 @@ from math import sqrt, acos, sin, cos, radians, degrees
 
 
 # пути
-workdir = Path(r'D:\work\2022_m\110_man-nps1\test')
+workdir = Path(r'D:\work\2022_m\220_man-van\test')
 tempdir = workdir / 'temp'
-p_dxf = workdir / 'hor.dxf'
+#p_dxf = workdir / 'hor.dxf'
 
 
 def azimuth(a, b):
@@ -191,7 +191,7 @@ def az_str(az1, az2):
 
 # start here
 # firstly get the initial table
-cgt_tab = pd.read_csv(workdir / '110_v2.txt', delimiter='\t', index_col='index', encoding='cp1251')
+cgt_tab = pd.read_csv(workdir / '220_v2.txt', delimiter='\t', index_col='index', encoding='cp1251')
 # cgt_tab = pd.read_excel(resultdir / 'cgtw_output.xlsx', index_col=0)   # old vers
 ang_tab = cgt_tab[['c_line', 'id']].copy()   # create new tab based of initial
 
@@ -201,11 +201,7 @@ new_cols = ['span name',
             'span azimuth',
             'line angle',
             'structure azimuth',
-            'structure rotation',
-            'x_arm start',
-            'x_arm 1',
-            'x_arm 2',
-            'x_arm 3']
+            'x_arm start']
 
 for col in new_cols:
     ang_tab[col] = np.nan
@@ -263,38 +259,39 @@ for n in range(len(cgt_tab)):
     print('after second run ', second_run)
     ang_tab.loc[idx, 'x_arm start'] = second_run   # write to tab
 
-    # final cut - low level - 0.2m
-    np_str_top = np.delete(np_str_dist, np_str_dist[:, 2] < second_run - 0.3, 0)
-
-    # try to find each arm level
-    third_run = xarms_levels_2(np_str_top[:, 2], 0.1)[0]
-
-    print('num of arms before group: ', third_run)
-    num_arms = group_arms(third_run, 0.3)    # bot levels of arms
-    print('num of arms: ', num_arms)
-    # if len(num_arms) > 3:
-    #     num_arms = num_arms[-3:]    # if there are more than 3 - leave top 3
-    #     print('!! corrected arms: ', num_arms)
-
-    # divide by arms and cut 1.15m from the center (we use just lowest level of arms = 0.2m)
-    arms = []
-    for i in range(len(num_arms)):
-        arms_len = []   # len, indx
-        arm = np.delete(np_str_top, np_str_top[:, 2] < (num_arms[i] - 0.2), 0)  # cut bot
-        arm = np.delete(arm, arm[:, 2] > (num_arms[i] + 0.2), 0)  # cut top
-        arm = np.delete(arm, arm[:, 4] < 1.15, 0)  # cut by len 0 - 1.15
-        if len(arm) != 0:
-            arms.append(arm)
-        for i in range(len(arms)):
-            arms_len.append([len(arms[i]), i])
-
-        if len(num_arms) > 3:
-            arms_len = sorted(arms_len)[:-3]
-            for i in arms_len:
-                #print(i)
-                arms.pop(i[1])
-
-    arm_axes = []
+    # this code does not work as expected, so do not use it
+    # # final cut - low level - 0.2m
+    # np_str_top = np.delete(np_str_dist, np_str_dist[:, 2] < second_run - 0.3, 0)
+    #
+    # # try to find each arm level
+    # third_run = xarms_levels_2(np_str_top[:, 2], 0.1)[0]
+    #
+    # print('num of arms before group: ', third_run)
+    # num_arms = group_arms(third_run, 0.3)    # bot levels of arms
+    # print('num of arms: ', num_arms)
+    # # if len(num_arms) > 3:
+    # #     num_arms = num_arms[-3:]    # if there are more than 3 - leave top 3
+    # #     print('!! corrected arms: ', num_arms)
+    #
+    # # divide by arms and cut 1.15m from the center (we use just lowest level of arms = 0.2m)
+    # arms = []
+    # for i in range(len(num_arms)):
+    #     arms_len = []   # len, indx
+    #     arm = np.delete(np_str_top, np_str_top[:, 2] < (num_arms[i] - 0.2), 0)  # cut bot
+    #     arm = np.delete(arm, arm[:, 2] > (num_arms[i] + 0.2), 0)  # cut top
+    #     arm = np.delete(arm, arm[:, 4] < 1.15, 0)  # cut by len 0 - 1.15
+    #     if len(arm) != 0:
+    #         arms.append(arm)
+    #     for i in range(len(arms)):
+    #         arms_len.append([len(arms[i]), i])
+    #
+    #     if len(num_arms) > 3:
+    #         arms_len = sorted(arms_len)[:-3]
+    #         for i in arms_len:
+    #             #print(i)
+    #             arms.pop(i[1])
+    #
+    # arm_axes = []
 
     # find structure azimuth
     if idx != 1:
@@ -302,58 +299,62 @@ for n in range(len(cgt_tab)):
     else:
         str_az = round(az_str(ang_tab.loc[idx, 'span azimuth'], ang_tab.loc[idx, 'span azimuth']), 1)
     print('structure azimuth: ', str_az)
+    ang_tab.loc[idx, f'structure azimuth'] = str_az   # write to table
 
-    for arm in arms:
-        # for each arm
-        # devide to 2 part by angle
-        # find angle and max len for each part
 
-        first_part = []
-        second_part = []
+    # this part is not work well, so decided not to use it
 
-        for ii in range(len(arm)):
-            if ii != 0:
-                if abs(arm[:,3][ii]-str_az) > 40:
-                    second_part.append(list(arm[ii]))
-                else:
-                    first_part.append(list(arm[ii]))
-            else:
-                spam = arm[:,3][ii]
-                first_part.append(list(arm[ii]))
-
-        print('разделено на две части: ', len(first_part), len(second_part))
-
-        # cut by length and angle
-        if len(first_part) > 0 and len(second_part) > 0:
-
-            first_part = cutpart(first_part)
-            second_part = cutpart(second_part)
-
-            first_az, sec_az = np.mean(first_part[:, 3]), np.mean(second_part[:,3])
-            first_len, sec_len = max(first_part[:, 4]), max(second_part[:,4])
-            first_h, sec_h = np.mean(sorted(first_part[:, 2])[:5]), np.mean(sorted(second_part[:,2])[:5])
-
-            first_shift = aztocoords(first_az, first_len)
-            sec_shift = aztocoords(sec_az, sec_len)
-
-            start_pt = (round(cpoint[0], 2) + round(first_shift[0], 2),
-                        round(cpoint[1], 2) + round(first_shift[1], 2),
-                        round(first_h, 2))
-            end_pt = (round(cpoint[0], 2) + round(sec_shift[0], 2),
-                      round(cpoint[1], 2) + round(sec_shift[1], 2),
-                      round(sec_h, 2))
-
-            arm_axes.append((start_pt, end_pt))
-
-        # finaly write them to the tab
-        for i in range(len(arm_axes)):
-            ang_tab.loc[idx, f'x_arm {i+1}'] = str(arm_axes[i])
+    # for arm in arms:
+    #     # for each arm
+    #     # devide to 2 part by angle
+    #     # find angle and max len for each part
+    #
+    #     first_part = []
+    #     second_part = []
+    #
+    #     for ii in range(len(arm)):
+    #         if ii != 0:
+    #             if abs(arm[:,3][ii]-str_az) > 40:
+    #                 second_part.append(list(arm[ii]))
+    #             else:
+    #                 first_part.append(list(arm[ii]))
+    #         else:
+    #             spam = arm[:,3][ii]
+    #             first_part.append(list(arm[ii]))
+    #
+    #     print('разделено на две части: ', len(first_part), len(second_part))
+    #
+    #     # cut by length and angle
+    #     if len(first_part) > 0 and len(second_part) > 0:
+    #
+    #         first_part = cutpart(first_part)
+    #         second_part = cutpart(second_part)
+    #
+    #         first_az, sec_az = np.mean(first_part[:, 3]), np.mean(second_part[:,3])
+    #         first_len, sec_len = max(first_part[:, 4]), max(second_part[:,4])
+    #         first_h, sec_h = np.mean(sorted(first_part[:, 2])[:5]), np.mean(sorted(second_part[:,2])[:5])
+    #
+    #         first_shift = aztocoords(first_az, first_len)
+    #         sec_shift = aztocoords(sec_az, sec_len)
+    #
+    #         start_pt = (round(cpoint[0], 2) + round(first_shift[0], 2),
+    #                     round(cpoint[1], 2) + round(first_shift[1], 2),
+    #                     round(first_h, 2))
+    #         end_pt = (round(cpoint[0], 2) + round(sec_shift[0], 2),
+    #                   round(cpoint[1], 2) + round(sec_shift[1], 2),
+    #                   round(sec_h, 2))
+    #
+    #         arm_axes.append((start_pt, end_pt))
+    #
+    #     # finaly write them to the tab
+    #     for i in range(len(arm_axes)):
+    #         ang_tab.loc[idx, f'x_arm {i+1}'] = str(arm_axes[i])
 
 
 ang_tab.to_excel(workdir / "ang_tab.xlsx")  # save to xls
 
 
 # creating DXF
-p_dxf.write_text('  0\nSECTION\n  2\nENTITIES\n' + hor_axes(ang_tab) + '  0\nENDSEC\n  0\nEOF')
+# p_dxf.write_text('  0\nSECTION\n  2\nENTITIES\n' + hor_axes(ang_tab) + '  0\nENDSEC\n  0\nEOF')
 
 input('расчет завершен, нажмите Enter для выхода')
