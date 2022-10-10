@@ -11,10 +11,9 @@ from math import sqrt, acos, sin, cos, radians, degrees
 
 
 # пути
-workdir = Path(r'D:\work\2022_m\training\ok')
-resultdir = workdir / 'result'
+workdir = Path(r'D:\work\2022_m\110_man-nps1\test')
 tempdir = workdir / 'temp'
-p_dxf = resultdir / 'hor.dxf'
+p_dxf = workdir / 'hor.dxf'
 
 
 def azimuth(a, b):
@@ -116,14 +115,11 @@ def xarms_levels_2(array, segment_size):
 
 def group_arms(levels, segment_size):
     # group them if they close to each other
+
     new_levels = [levels[0]]  # add first one
-    spam = levels[0]
     for i in range(1, len(levels)):
-        if levels[i] == round((spam + segment_size), 1):
-            spam = levels[i]
-        else:
+        if levels[i-1] + segment_size < levels[i]:
             new_levels.append(levels[i])
-            spam = levels[i]
 
     return new_levels
 
@@ -162,28 +158,41 @@ def hor_axes(a_tab):
             for arm_name in ('x_arm 1', 'x_arm 2', 'x_arm 3'):
                 # create 3 layers with xarms
                 xarm = a_tab.loc[idx, arm_name]
-                # convert string to float
-                xarm = xarm.split(',')
-                for i in range(len(xarm)):
-                    xarm[i] = float(xarm[i].strip('( )'))
+                if not pd.isna(xarm):
+                    # convert string to float
+                    xarm = xarm.split(',')
+                    for i in range(len(xarm)):
+                        xarm[i] = float(xarm[i].strip('( )'))
 
-                layername = arm_name
+                    layername = arm_name
 
-                # add header
-                text += f'0\nLINE\n 8\n{layername}\n 62\n     {color}\n'
+                    # add header
+                    text += f'0\nLINE\n 8\n{layername}\n 62\n     {color}\n'
 
-                # add first coords
-                text += f" 10\n{xarm[0]}\n 20\n{xarm[1]}\n 30\n{xarm[2]}\n"
+                    # add first coords
+                    text += f" 10\n{xarm[0]}\n 20\n{xarm[1]}\n 30\n{xarm[2]}\n"
 
-                # add second coords
-                text += f" 11\n{xarm[3]}\n 21\n{xarm[4]}\n 31\n{xarm[5]}\n"
+                    # add second coords
+                    text += f" 11\n{xarm[3]}\n 21\n{xarm[4]}\n 31\n{xarm[5]}\n"
 
     return text
 
 
+# structure azimuth (middle of span az)
+def az_str(az1, az2):
+    az = (az1 + az2) / 2 - 90
+    if az < 0:
+        az += 360
+    elif az > 360:
+        az -= 360
+
+    return az
+
+
 # start here
 # firstly get the initial table
-cgt_tab = pd.read_excel(resultdir / 'cgtw_output.xlsx', index_col=0)
+cgt_tab = pd.read_csv(workdir / '110_v2.txt', delimiter='\t', index_col='index', encoding='cp1251')
+# cgt_tab = pd.read_excel(resultdir / 'cgtw_output.xlsx', index_col=0)   # old vers
 ang_tab = cgt_tab[['c_line', 'id']].copy()   # create new tab based of initial
 
 # add new cols
@@ -208,8 +217,8 @@ for n in range(len(cgt_tab) - 1):
     if cgt_tab.loc[idx, 'c_line'] == cgt_tab.loc[idx + 1, 'c_line']:
         # check if we on the same c-line
         ang_tab.loc[idx, 'span name'] = f"{cgt_tab.loc[idx, 'id']} - {cgt_tab.loc[idx + 1, 'id']}"  # span id
-        a = (cgt_tab.loc[idx, 'x1'], cgt_tab.loc[idx, 'y1'])  # start point
-        b = (cgt_tab.loc[idx + 1, 'x1'], cgt_tab.loc[idx + 1, 'y1'])  # end point
+        a = (cgt_tab.loc[idx, 'x_bot'], cgt_tab.loc[idx, 'y_bot'])  # start point
+        b = (cgt_tab.loc[idx + 1, 'x_bot'], cgt_tab.loc[idx + 1, 'y_bot'])  # end point
         ang_tab.loc[idx, 'span azimuth'], ang_tab.loc[idx, 'span length 2d'] = azimuth(a, b)
         if idx > 1:
             if cgt_tab.loc[idx, 'c_line'] == cgt_tab.loc[idx - 1, 'c_line']:
@@ -231,9 +240,9 @@ for n in range(len(cgt_tab)):
     print('приступаем к опоре № ', n+1)
     idx = cgt_tab.iloc[n].name  # find index and work with index
     tow_cut = xyz_read(tempdir / str(f"{idx}_{cgt_tab.loc[idx, 'id']}_str.xyz"))    # read file
-    cpoint = (cgt_tab.loc[idx, 'x1'], cgt_tab.loc[idx, 'y1'])  # center
+    cpoint = (cgt_tab.loc[idx, 'x_bot'], cgt_tab.loc[idx, 'y_bot'])  # center
 
-    np_str_dist = cut_the_legs(tow_cut, cpoint)   # cut the legs and add angle and dist to array
+    np_str_dist = cut_the_legs(tow_cut, cpoint)   # cut the legs to array
 
     # split xarms
     first_run = xarms_levels(np_str_dist[:, 2], 1)[0]  # take 1m step
@@ -247,7 +256,7 @@ for n in range(len(cgt_tab)):
         np_str_cut_1 = np.delete(np_str_cut_1, np_str_cut_1[:, 2] > first_run[-2], 0)  # top side
     else:
         np_str_cut_1 = np.delete(np_str_dist, np_str_dist[:, 2] < first_run[0] - 0.2, 0)  # bot side
-        np_str_cut_1 = np.delete(np_str_cut_1, np_str_cut_1[:, 2] > first_run[1], 0)  # top side
+        # np_str_cut_1 = np.delete(np_str_cut_1, np_str_cut_1[:, 2] > first_run[1], 0)  # top side
 
     # second run - more accurate - 0.1m segments - take only biggest value
     second_run = xarms_levels(np_str_cut_1[:,2], 0.1)[1]   # this is our start point now
@@ -260,21 +269,39 @@ for n in range(len(cgt_tab)):
     # try to find each arm level
     third_run = xarms_levels_2(np_str_top[:, 2], 0.1)[0]
 
-    num_arms = group_arms(third_run, 0.2)    # bot levels of arms
+    print('num of arms before group: ', third_run)
+    num_arms = group_arms(third_run, 0.3)    # bot levels of arms
     print('num of arms: ', num_arms)
-    if len(num_arms) > 3:
-        num_arms = num_arms[-3:]    # if there are more than 3 - leave top 3
-        print('!! corrected arms: ', num_arms)
+    # if len(num_arms) > 3:
+    #     num_arms = num_arms[-3:]    # if there are more than 3 - leave top 3
+    #     print('!! corrected arms: ', num_arms)
 
-    # divide by arms and cut 2m from the center (we use just lowest level of arms = 0.2m)
+    # divide by arms and cut 1.15m from the center (we use just lowest level of arms = 0.2m)
     arms = []
     for i in range(len(num_arms)):
+        arms_len = []   # len, indx
         arm = np.delete(np_str_top, np_str_top[:, 2] < (num_arms[i] - 0.2), 0)  # cut bot
         arm = np.delete(arm, arm[:, 2] > (num_arms[i] + 0.2), 0)  # cut top
-        arm = np.delete(arm, arm[:, 4] < 2, 0)  # cut by len 0 - 2
-        arms.append(arm)
+        arm = np.delete(arm, arm[:, 4] < 1.15, 0)  # cut by len 0 - 1.15
+        if len(arm) != 0:
+            arms.append(arm)
+        for i in range(len(arms)):
+            arms_len.append([len(arms[i]), i])
+
+        if len(num_arms) > 3:
+            arms_len = sorted(arms_len)[:-3]
+            for i in arms_len:
+                #print(i)
+                arms.pop(i[1])
 
     arm_axes = []
+
+    # find structure azimuth
+    if idx != 1:
+        str_az = round(az_str(ang_tab.loc[idx, 'span azimuth'], ang_tab.loc[idx - 1, 'span azimuth']), 1)
+    else:
+        str_az = round(az_str(ang_tab.loc[idx, 'span azimuth'], ang_tab.loc[idx, 'span azimuth']), 1)
+    print('structure azimuth: ', str_az)
 
     for arm in arms:
         # for each arm
@@ -286,7 +313,7 @@ for n in range(len(cgt_tab)):
 
         for ii in range(len(arm)):
             if ii != 0:
-                if abs(arm[:,3][ii]-spam) > 40:
+                if abs(arm[:,3][ii]-str_az) > 40:
                     second_part.append(list(arm[ii]))
                 else:
                     first_part.append(list(arm[ii]))
@@ -297,31 +324,33 @@ for n in range(len(cgt_tab)):
         print('разделено на две части: ', len(first_part), len(second_part))
 
         # cut by length and angle
-        first_part = cutpart(first_part)
-        second_part = cutpart(second_part)
+        if len(first_part) > 0 and len(second_part) > 0:
 
-        first_az, sec_az = np.mean(first_part[:, 3]), np.mean(second_part[:,3])
-        first_len, sec_len = max(first_part[:, 4]), max(second_part[:,4])
-        first_h, sec_h = np.mean(sorted(first_part[:, 2])[:5]), np.mean(sorted(second_part[:,2])[:5])
+            first_part = cutpart(first_part)
+            second_part = cutpart(second_part)
 
-        first_shift = aztocoords(first_az, first_len)
-        sec_shift = aztocoords(sec_az, sec_len)
+            first_az, sec_az = np.mean(first_part[:, 3]), np.mean(second_part[:,3])
+            first_len, sec_len = max(first_part[:, 4]), max(second_part[:,4])
+            first_h, sec_h = np.mean(sorted(first_part[:, 2])[:5]), np.mean(sorted(second_part[:,2])[:5])
 
-        start_pt = (round(cpoint[0], 2) + round(first_shift[0], 2),
-                    round(cpoint[1], 2) + round(first_shift[1], 2),
-                    round(first_h, 2))
-        end_pt = (round(cpoint[0], 2) + round(sec_shift[0], 2),
-                  round(cpoint[1], 2) + round(sec_shift[1], 2),
-                  round(sec_h, 2))
+            first_shift = aztocoords(first_az, first_len)
+            sec_shift = aztocoords(sec_az, sec_len)
 
-        arm_axes.append((start_pt, end_pt))
+            start_pt = (round(cpoint[0], 2) + round(first_shift[0], 2),
+                        round(cpoint[1], 2) + round(first_shift[1], 2),
+                        round(first_h, 2))
+            end_pt = (round(cpoint[0], 2) + round(sec_shift[0], 2),
+                      round(cpoint[1], 2) + round(sec_shift[1], 2),
+                      round(sec_h, 2))
 
-    # finaly write them to the tab
-    for i in range(len(arm_axes)):
-        ang_tab.loc[idx, f'x_arm {i+1}'] = str(arm_axes[i])
+            arm_axes.append((start_pt, end_pt))
+
+        # finaly write them to the tab
+        for i in range(len(arm_axes)):
+            ang_tab.loc[idx, f'x_arm {i+1}'] = str(arm_axes[i])
 
 
-ang_tab.to_excel(resultdir / "ang_tab.xlsx")  # save to xls
+ang_tab.to_excel(workdir / "ang_tab.xlsx")  # save to xls
 
 
 # creating DXF
