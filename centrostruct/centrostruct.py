@@ -12,9 +12,9 @@ from shapely.ops import split
 import csv
 
 # пути
-workdir = Path(r'D:\work\2022_m\training\ok')
-p_bin = workdir / '645.bin'
-p_cgtw = workdir / 'ctow.txt'  # path to ctow
+workdir = Path(r'D:\work\2022_m\220_man-van')
+p_bin = workdir / '220_g25v.bin'
+p_cgtw = workdir / '220_ctow.txt'  # path to ctow
 
 resultdir = workdir / 'result'
 if not resultdir.exists():
@@ -33,11 +33,11 @@ if not tempdir.exists():
 # переменные
 grd_class = 2   # номер класса с точками земли
 structure_points_class = 203   # номер класса с ТЛО от опор
-buf_radius = 15   # первоначальный радиус отбора точек опор и земли
+buf_radius = 10   # первоначальный радиус отбора точек опор и земли
 buf_radius_2 = 2   # радиус отбора точек земли для финального уточнения высоты
 polybuff = 1   # буфер вокруг полигона при поиске центроида
-bot_str = 10    # процент от высоты опоры снизу для определения центра
-up_str = 10    # процент от высоты опоры сверху для определения центра
+bot_str = 12    # процент от высоты опоры снизу для определения центра
+up_str = 12    # процент от высоты опоры сверху для определения центра
 rprt = []   # репорт
 
 
@@ -222,7 +222,11 @@ def z_level_shp(x, y, g_array, radius):
     grd_cut2 = g_array.intersection(s.buffer(radius))   # вырезаем поуже
 
     if type(grd_cut2) == Point:
-        return grd_cut2.z
+        if grd_cut2.is_empty:
+            # if no points of grd
+            return np.mean(g_array, axis=0)[2]
+        else:
+            return grd_cut2.z
 
     elif len(grd_cut2.geoms) > 0:
         aa = []    # переводим назад в простой массив (new shapely does not work well)
@@ -386,11 +390,11 @@ def find_center(cgtw_g, buf_radius_2, polybuff):
             tow_low = (np.min(tow_cut, axis=0)[2])+1
 
             # начинаем с верхушки опоры
-            up_lvl = tow_top - 1   # try this
+            up_lvl = tow_top - 2.5   # try this
             #up_lvl = (tow_top - grd_lvl) * ((100 - up_str) / 100) + grd_lvl
             tow_up = []
             for i in range(len(tow_cut)):
-                if tow_cut[i][2] > up_lvl:
+                if (tow_top - 0.5) > tow_cut[i][2] > up_lvl:
                     tow_up.append(tow_cut[i])  # upper points
             tow_up = MultiPoint(tow_up)
             # находим центр
@@ -402,7 +406,7 @@ def find_center(cgtw_g, buf_radius_2, polybuff):
             bot_lvl = (tow_top - tow_low) * (bot_str / 100) + tow_low  # высота части основания от нижнего отражения
             tow_bot = []
             for i in range(len(tow_cut)):
-                if tow_low+2 < tow_cut[i][2] < bot_lvl:
+                if tow_low < tow_cut[i][2] < bot_lvl:
                     tow_bot.append(tow_cut[i])  # upper points
             tow_bot = MultiPoint(tow_bot)
 
